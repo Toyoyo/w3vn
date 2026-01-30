@@ -31,19 +31,18 @@ To build this, you need the following:
 ## STVN.INI settings
 As a sample, use the following:
 ```
-STEST.VNS
-B20000
+SSTDEMO.VNS
+TSTVN Engine - Win32s
 ```
 'S' line is the script file
-'B' line is the SNDH buffer space
-Defaults: ``STVN.VNS`` & ``20000``
+'T' line is the window Title
+Defaults: ``STVN.VNS`` & ``STVN Engine - Win32s``
 
 ## Supported formats / limitations:
-* For pictures: PI1/PI3 monochrome, uncompressed 32KiB files.
-  The palette isn't used, only the first 25600 bytes are read (640x360 image, leaving 40 pixels for text, 4 lines)
+* For pictures: PI3 monochrome, optionally gzipped, or PNG (via libpng)
+  for PI1, the palette isn't used, only the first 25600 bytes are read (640x360 image, leaving 40 pixels for text, 4 lines)
 
-For audio: any SNDH with a working playback routine compatible with gwEm's sndhlib
-Both can be gzipped.
+* For audio: Anything MCI supports, like MIDI or RAW/ADPCM WAV, for the most compatible formats.
 
 Savestates: 4 supported, adding more would be trivial.
 10 VN choices binary "registers", adding more wouldn't be very hard.
@@ -66,9 +65,9 @@ Supported operands:
 
   Syntax: ``I[file]`` like ``IFILE.PI3``
 
-  Expected format is PI3, can (should) be gzipped, and is loaded entirely before being copied to video memory.
+  Expected format is PI3, can (should) be gzipped, or PNG, and is loaded entirely before being copied to video memory.
 
-  Only the first 320 lines are loaded and drawn, the rest of the screen being used for the text area.
+  For PI3, only the first 320 lines are loaded and drawn, the rest of the screen being used for the text area.
 
   A few bytes can thus be saved, for example bv removing the 400-lines padding code in pbmtopi3 source.
 
@@ -92,13 +91,11 @@ Supported operands:
 
 * 'P' : Change music
 
-  Syntax: ``P[file]`` like ``PFILE.SND``
+  Syntax: ``P[file]`` like ``PFILE.MID``
 
-  Expected format is uncompressed SNDH (use unice68), but can and should be gzipped, and is loaded entirely before starting its playing routine.
+  Any music/sound file supported by MCI, notably MIDI and WAV files.
 
-  This uses gwEm's sndhlib code, which should be pretty robust, but I'm not responsible for bugged replay routines in SNDH files...
-
-  Note: Be sure to adjust the 'B' Line in STVN.INI to match the *uncompressed* size of your largest tune. The default is 20000 bytes.
+  ADPCM WAV provides some compression while being compatible with any windows version starting from Windows 3.1.
 
 * 'J' : Jump to label
 
@@ -138,11 +135,13 @@ Supported operands:
 
   Syntax: ``A[XXX][YYY][file]`` like ``A000000TOYO.SPR``
 
-  The expected format is derived from XPM, can (should) be gzipped and is plotted as it's read.
+  The expected format can be:
 
-  A converter script is provided.
+  - PNG
 
-  Screen boundary are checked during drawing, but you can draw on the text area if you want.
+  - Or the original monochrome STVN format derived from XPM which can (should) be gzipped and is plotted as it's read.
+
+  For the monochrome XPM-based format, a converter script is provided and screen boundary are checked during drawing, but you can draw on the text area if you want.
 
   More precicely: X coordinates after 640 are ignored and Y coordinates after 400 ends the drawing routine.
 
