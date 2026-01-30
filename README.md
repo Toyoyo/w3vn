@@ -64,7 +64,7 @@ Supported operands:
 
   Syntax: ``I[file]`` like ``IFILE.PI3``
 
-  Expected format is PI3, can (should) be gzipped, or PNG, and is loaded entirely before being copied to video memory.
+  Expected format is PI3, can (should) be gzipped, or PNG, and is loaded entirely before being copied to a 32-bit DIB.
 
   For PI3, only the first 320 lines are loaded and drawn, the rest of the screen being used for the text area.
 
@@ -118,7 +118,7 @@ Supported operands:
 
 * 'R' : Redraw the background picture.
 
-  More precisely, copy back the buffer of last loaded one into video memory.
+  More precisely, copy back the buffer of last loaded one into the 32-bit DIB.
 
   This will obviously erase all sprites and clear the internal sprite list.
 
@@ -130,7 +130,7 @@ Supported operands:
 
   Syntax: ``D[msec]`` like ``D2000``
 
-* 'A' : Load and draw a sprite in video memory.
+* 'A' : Load and draw a sprite in the 32-bit DIB.
 
   Syntax: ``A[XXX][YYY][file]`` like ``A000000TOYO.SPR``
 
