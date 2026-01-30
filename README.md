@@ -14,7 +14,7 @@ To build this, you need the following:
 
 ## Running
 * Provide a script file following the documented syntax
-* Edit STVN.INI to meet your needs: script file and SNDH memory buffer, which should be the size of your largest SNDH file
+* Edit STVN.INI to meet your needs: script file and Window title
 * Run W3VN.EXE
 
 ## Key bindings
