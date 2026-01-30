@@ -1,4 +1,4 @@
-# STVN
+# W3VN
 A very simple visual novel engine for Win32s and ulterior win32 implementations.
 
 ![stvn](/assets/stvn.png)
