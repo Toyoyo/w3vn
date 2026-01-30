@@ -1,0 +1,31 @@
+# pngconfig.dfa: this file contains configuration options for libpng.
+# If empty the standard configuration will be built.  For this file to be
+# used a working version of the program 'awk' is required and the program
+# must be identified in the 'before' rule of the project.
+#
+# If you don't already have 'awk', or the version of awk you have seems not
+# to work, download Brian Kernighan's awk (Brian Kernighan is the author of
+# awk.)  You can find source code and a built executable (called awk95.exe)
+# here:
+#
+#     https://www.cs.princeton.edu/~bwk/btl.mirror/
+#
+# The executable works just fine.
+#
+# If build issues errors after a change to pngconfig.dfa you have entered
+# inconsistent feature requests, or even malformed requests, in
+# pngconfig.dfa.  The error messages from awk should be comprehensible, but
+# if not simply go back to the start (nothing but comments in this file) and
+# enter configuration lines one by one until one produces an error.  (Or, of
+# course, do the standard binary chop.)
+#
+# You need to rebuild everything after a change to pnglibconf.dfa - i.e. you
+# must do Actions/Mark All Targets for Remake.  This is because the compiler
+# generated dependency information (as of OpenWatcom 1.9) does not record the
+# dependency on pnglibconf.h correctly.
+#
+# If awk isn't set then this file is bypassed.  If you just want the standard
+# configuration it is automatically produced from the distributed version
+# (scripts\pnglibconf.h.prebuilt) by editing PNG_API_RULE to 2 (to force use
+# of the OpenWatcom library calling convention.)
+#

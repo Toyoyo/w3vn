@@ -1,0 +1,27 @@
+!define BLANK ""
+Z:\home\fosco\src\claude\w3vn\deps\libpng-1.6.54\projects\owatcom\pngtest.ob&
+j : Z:\home\fosco\src\claude\w3vn\deps\libpng-1.6.54\pngtest.c .AUTODEPEND
+ @Z:
+ cd Z:\home\fosco\src\claude\w3vn\deps\libpng-1.6.54\projects\owatcom
+ *wcc386 ..\..\pngtest.c -i="$(%zlib);/home/fosco/bin/WATCOM//h;/home/fosco/&
+bin/WATCOM//h/nt" -w4 -e25 -zq -otexan -d1 -6r -bt=nt -fo=.obj -mf
+
+Z:\home\fosco\src\claude\w3vn\deps\libpng-1.6.54\projects\owatcom\pngtest.ex&
+e : Z:\home\fosco\src\claude\w3vn\deps\libpng-1.6.54\projects\owatcom\pngtes&
+t.obj .AUTODEPEND
+ @Z:
+ cd Z:\home\fosco\src\claude\w3vn\deps\libpng-1.6.54\projects\owatcom
+ @%write pngtest.lk1 FIL pngtest.obj
+ @%append pngtest.lk1 
+!ifneq BLANK ""
+ *wlib -q -n -b pngtest.imp 
+ @%append pngtest.lk1 LIBR pngtest.imp
+!endif
+!ifneq BLANK ""
+ @%append pngtest.lk1 
+!endif
+ *wlink name pngtest sys nt op m libp $(%zlib) libr libpng.lib libr zlib.lib&
+ op maxe=25 op q op symf @pngtest.lk1
+ cd ..\..
+ projects\owatcom\pngtest
+

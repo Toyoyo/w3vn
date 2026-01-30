@@ -1,0 +1,28 @@
+!define BLANK ""
+Z:\home\fosco\src\claude\w3vn\deps\libpng-1.6.54\projects\owatcom\pngvalid.o&
+bj : Z:\home\fosco\src\claude\w3vn\deps\libpng-1.6.54\contrib\libtests\pngva&
+lid.c .AUTODEPEND
+ @Z:
+ cd Z:\home\fosco\src\claude\w3vn\deps\libpng-1.6.54\projects\owatcom
+ *wcc386 ..\..\contrib\libtests\pngvalid.c -i="$(%zlib);/home/fosco/bin/WATC&
+OM//h;/home/fosco/bin/WATCOM//h/nt" -w4 -e25 -zq -otexan -d1 -6r -bt=nt -fo=&
+.obj -mf
+
+Z:\home\fosco\src\claude\w3vn\deps\libpng-1.6.54\projects\owatcom\pngvalid.e&
+xe : Z:\home\fosco\src\claude\w3vn\deps\libpng-1.6.54\projects\owatcom\pngva&
+lid.obj .AUTODEPEND
+ @Z:
+ cd Z:\home\fosco\src\claude\w3vn\deps\libpng-1.6.54\projects\owatcom
+ @%write pngvalid.lk1 FIL pngvalid.obj
+ @%append pngvalid.lk1 
+!ifneq BLANK ""
+ *wlib -q -n -b pngvalid.imp 
+ @%append pngvalid.lk1 LIBR pngvalid.imp
+!endif
+!ifneq BLANK ""
+ @%append pngvalid.lk1 
+!endif
+ *wlink name pngvalid sys nt op st=768k op m libp $(%zlib) libr libpng.lib l&
+ibr zlib.lib op maxe=25 op q op symf @pngvalid.lk1
+ pngvalid
+

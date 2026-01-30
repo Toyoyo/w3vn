@@ -1,0 +1,541 @@
+--------------------
+./configure
+Thu Jan 22 11:30:42 PM CET 2026
+=== ztest582694.c ===
+extern int getchar();
+int hello() {return getchar();}
+===
+m68k-atari-mintelf-gcc -c ztest582694.c
+... using gcc
+
+Checking for obsessive-compulsive compiler options...
+=== ztest582694.c ===
+int foo() { return 0; }
+===
+m68k-atari-mintelf-gcc -c -O3 ztest582694.c
+
+Checking for shared library support...
+=== ztest582694.c ===
+extern int getchar();
+int hello() {return getchar();}
+===
+m68k-atari-mintelf-gcc -c -O3 -fPIC ztest582694.c
+cc1: error: '-fPIC' is not supported on this target
+(exit code 1)
+No shared library support; try without defining CC and CFLAGS
+Building static library libz.a version 1.3.1 with m68k-atari-mintelf-gcc.
+
+=== ztest582694.c ===
+#include <stdio.h>
+#include <stdlib.h>
+size_t dummy = 0;
+===
+m68k-atari-mintelf-gcc -c -O3 ztest582694.c
+Checking for size_t... Yes.
+
+=== ztest582694.c ===
+#include <sys/types.h>
+off64_t dummy = 0;
+===
+m68k-atari-mintelf-gcc -c -O3 -D_LARGEFILE64_SOURCE=1 ztest582694.c
+Checking for off64_t... Yes.
+Checking for fseeko... Yes.
+
+=== ztest582694.c ===
+#include <string.h>
+#include <errno.h>
+int main() { return strlen(strerror(errno)); }
+===
+m68k-atari-mintelf-gcc -O3 -D_LARGEFILE64_SOURCE=1 -o ztest582694 ztest582694.c
+Checking for strerror... Yes.
+
+=== ztest582694.c ===
+#include <unistd.h>
+int main() { return 0; }
+===
+m68k-atari-mintelf-gcc -c -O3 -D_LARGEFILE64_SOURCE=1 ztest582694.c
+Checking for unistd.h... Yes.
+
+=== ztest582694.c ===
+#include <stdarg.h>
+int main() { return 0; }
+===
+m68k-atari-mintelf-gcc -c -O3 -D_LARGEFILE64_SOURCE=1 ztest582694.c
+Checking for stdarg.h... Yes.
+
+=== ztest582694.c ===
+#include <stdio.h>
+#include <stdarg.h>
+#include "zconf.h"
+int main()
+{
+#ifndef STDC
+  choke me
+#endif
+  return 0;
+}
+===
+m68k-atari-mintelf-gcc -c -O3 -D_LARGEFILE64_SOURCE=1 ztest582694.c
+Checking whether to use vs[n]printf() or s[n]printf()... using vs[n]printf().
+
+=== ztest582694.c ===
+#include <stdio.h>
+#include <stdarg.h>
+int mytest(const char *fmt, ...)
+{
+  char buf[20];
+  va_list ap;
+  va_start(ap, fmt);
+  vsnprintf(buf, sizeof(buf), fmt, ap);
+  va_end(ap);
+  return 0;
+}
+int main()
+{
+  return (mytest("Hello%d\n", 1));
+}
+===
+m68k-atari-mintelf-gcc -O3 -D_LARGEFILE64_SOURCE=1 -o ztest582694 ztest582694.c
+Checking for vsnprintf() in stdio.h... Yes.
+
+=== ztest582694.c ===
+#include <stdio.h>
+#include <stdarg.h>
+int mytest(const char *fmt, ...)
+{
+  int n;
+  char buf[20];
+  va_list ap;
+  va_start(ap, fmt);
+  n = vsnprintf(buf, sizeof(buf), fmt, ap);
+  va_end(ap);
+  return n;
+}
+int main()
+{
+  return (mytest("Hello%d\n", 1));
+}
+===
+m68k-atari-mintelf-gcc -c -O3 -D_LARGEFILE64_SOURCE=1 ztest582694.c
+Checking for return value of vsnprintf()... Yes.
+
+=== ztest582694.c ===
+#define ZLIB_INTERNAL __attribute__((visibility ("hidden")))
+int ZLIB_INTERNAL foo;
+int main()
+{
+  return 0;
+}
+===
+m68k-atari-mintelf-gcc -c -O3 -D_LARGEFILE64_SOURCE=1 ztest582694.c
+Checking for attribute(visibility) support... Yes.
+
+ALL = static all64
+AR = m68k-atari-mintelf-ar
+ARFLAGS = rc
+CC = m68k-atari-mintelf-gcc
+CFLAGS = -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN
+CPP =
+EXE =
+LDCONFIG = ldconfig
+LDFLAGS =
+LDSHARED = m68k-atari-mintelf-gcc
+LDSHAREDLIBC = -lc
+OBJC = $(OBJZ) $(OBJG)
+PIC_OBJC = $(PIC_OBJZ) $(PIC_OBJG)
+RANLIB = m68k-atari-mintelf-ranlib
+SFLAGS = -O3 -fPIC -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN
+SHAREDLIB =
+SHAREDLIBM =
+SHAREDLIBV =
+STATICLIB = libz.a
+TEST = all teststatic test64
+VER = 1.3.1
+SRCDIR =
+exec_prefix = ${prefix}
+includedir = ${prefix}/include
+libdir = ${exec_prefix}/lib
+mandir = ${prefix}/share/man
+prefix = /usr/local
+sharedlibdir = ${libdir}
+uname = Linux
+--------------------
+
+
+--------------------
+./configure --help
+Wed Jan 28 11:55:14 PM CET 2026
+usage:
+  configure [--const] [--zprefix] [--prefix=PREFIX]  [--eprefix=EXPREFIX]
+    [--static] [--64] [--libdir=LIBDIR] [--sharedlibdir=LIBDIR]
+    [--includedir=INCLUDEDIR] [--archs="-arch i386 -arch x86_64"]
+--------------------
+./configure
+Wed Jan 28 11:55:23 PM CET 2026
+Checking for gcc...
+=== ztest2523297.c ===
+extern int getchar();
+int hello() {return getchar();}
+===
+gcc -c ztest2523297.c
+... using gcc
+
+Checking for obsessive-compulsive compiler options...
+=== ztest2523297.c ===
+int foo() { return 0; }
+===
+gcc -c -O3 ztest2523297.c
+
+Checking for shared library support...
+=== ztest2523297.c ===
+extern int getchar();
+int hello() {return getchar();}
+===
+gcc -c -O3 -fPIC ztest2523297.c
+gcc -shared -Wl,-soname,libz.so.1,--version-script,zlib.map -O3 -fPIC -o ztest2523297.so ztest2523297.o
+Building shared library libz.so.1.3.1 with gcc.
+
+=== ztest2523297.c ===
+#include <stdio.h>
+#include <stdlib.h>
+size_t dummy = 0;
+===
+gcc -c -O3 ztest2523297.c
+Checking for size_t... Yes.
+
+=== ztest2523297.c ===
+#include <sys/types.h>
+off64_t dummy = 0;
+===
+gcc -c -O3 -D_LARGEFILE64_SOURCE=1 ztest2523297.c
+Checking for off64_t... Yes.
+Checking for fseeko... Yes.
+
+=== ztest2523297.c ===
+#include <string.h>
+#include <errno.h>
+int main() { return strlen(strerror(errno)); }
+===
+gcc -O3 -D_LARGEFILE64_SOURCE=1 -o ztest2523297 ztest2523297.c
+Checking for strerror... Yes.
+
+=== ztest2523297.c ===
+#include <unistd.h>
+int main() { return 0; }
+===
+gcc -c -O3 -D_LARGEFILE64_SOURCE=1 ztest2523297.c
+Checking for unistd.h... Yes.
+
+=== ztest2523297.c ===
+#include <stdarg.h>
+int main() { return 0; }
+===
+gcc -c -O3 -D_LARGEFILE64_SOURCE=1 ztest2523297.c
+Checking for stdarg.h... Yes.
+
+=== ztest2523297.c ===
+#include <stdio.h>
+#include <stdarg.h>
+#include "zconf.h"
+int main()
+{
+#ifndef STDC
+  choke me
+#endif
+  return 0;
+}
+===
+gcc -c -O3 -D_LARGEFILE64_SOURCE=1 ztest2523297.c
+Checking whether to use vs[n]printf() or s[n]printf()... using vs[n]printf().
+
+=== ztest2523297.c ===
+#include <stdio.h>
+#include <stdarg.h>
+int mytest(const char *fmt, ...)
+{
+  char buf[20];
+  va_list ap;
+  va_start(ap, fmt);
+  vsnprintf(buf, sizeof(buf), fmt, ap);
+  va_end(ap);
+  return 0;
+}
+int main()
+{
+  return (mytest("Hello%d\n", 1));
+}
+===
+gcc -O3 -D_LARGEFILE64_SOURCE=1 -o ztest2523297 ztest2523297.c
+Checking for vsnprintf() in stdio.h... Yes.
+
+=== ztest2523297.c ===
+#include <stdio.h>
+#include <stdarg.h>
+int mytest(const char *fmt, ...)
+{
+  int n;
+  char buf[20];
+  va_list ap;
+  va_start(ap, fmt);
+  n = vsnprintf(buf, sizeof(buf), fmt, ap);
+  va_end(ap);
+  return n;
+}
+int main()
+{
+  return (mytest("Hello%d\n", 1));
+}
+===
+gcc -c -O3 -D_LARGEFILE64_SOURCE=1 ztest2523297.c
+Checking for return value of vsnprintf()... Yes.
+
+=== ztest2523297.c ===
+#define ZLIB_INTERNAL __attribute__((visibility ("hidden")))
+int ZLIB_INTERNAL foo;
+int main()
+{
+  return 0;
+}
+===
+gcc -c -O3 -D_LARGEFILE64_SOURCE=1 ztest2523297.c
+Checking for attribute(visibility) support... Yes.
+
+ALL = static shared all64
+AR = ar
+ARFLAGS = rc
+CC = gcc
+CFLAGS = -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN
+CPP =
+EXE =
+LDCONFIG = ldconfig
+LDFLAGS =
+LDSHARED = gcc -shared -Wl,-soname,libz.so.1,--version-script,zlib.map
+LDSHAREDLIBC = -lc
+OBJC = $(OBJZ) $(OBJG)
+PIC_OBJC = $(PIC_OBJZ) $(PIC_OBJG)
+RANLIB = ranlib
+SFLAGS = -O3 -fPIC -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN
+SHAREDLIB = libz.so
+SHAREDLIBM = libz.so.1
+SHAREDLIBV = libz.so.1.3.1
+STATICLIB = libz.a
+TEST = all teststatic testshared test64
+VER = 1.3.1
+SRCDIR =
+exec_prefix = ${prefix}
+includedir = ${prefix}/include
+libdir = ${exec_prefix}/lib
+mandir = ${prefix}/share/man
+prefix = /usr/local
+sharedlibdir = ${libdir}
+uname = Linux
+--------------------
+
+
+--------------------
+./configure CC=owcc
+Wed Jan 28 11:55:31 PM CET 2026
+unknown option: CC=owcc
+./configure --help for help
+** ./configure aborting.
+--------------------
+
+
+--------------------
+./configure
+Wed Jan 28 11:55:48 PM CET 2026
+=== ztest2523529.c ===
+extern int getchar();
+int hello() {return getchar();}
+===
+owcc -c ztest2523529.c
+... using owcc
+
+Checking for obsessive-compulsive compiler options...
+=== ztest2523529.c ===
+int foo() { return 0; }
+===
+owcc -c -O ztest2523529.c
+
+Checking for shared library support...
+=== ztest2523529.c ===
+extern int getchar();
+int hello() {return getchar();}
+===
+owcc -c -O ztest2523529.c
+cc -shared -O -o ztest2523529.so ztest2523529.o
+ztest2523529.o: file not recognized: file format not recognized
+collect2: error: ld returned 1 exit status
+(exit code 1)
+No shared library support; try without defining CC and CFLAGS
+Building static library libz.a version 1.3.1 with owcc.
+
+=== ztest2523529.c ===
+#include <stdio.h>
+#include <stdlib.h>
+size_t dummy = 0;
+===
+owcc -c -O ztest2523529.c
+Checking for size_t... Yes.
+
+=== ztest2523529.c ===
+#include <sys/types.h>
+off64_t dummy = 0;
+===
+owcc -c -O -D_LARGEFILE64_SOURCE=1 ztest2523529.c
+ztest2523529.c(2): Error! E1022: Missing or misspelled data type near 'off64_t'
+ztest2523529.c(2): Warning! W132: No storage class or type specified
+Error: Compiler returned a bad status compiling 'ztest2523529.c'
+(exit code 1)
+Checking for off64_t... No.
+
+=== ztest2523529.c ===
+#include <stdio.h>
+int main(void) {
+  fseeko(NULL, 0, 0);
+  return 0;
+}
+===
+owcc -O -o ztest2523529 ztest2523529.c
+ztest2523529.c(3): Warning! W131: No prototype found for function 'fseeko'
+Checking for fseeko... Yes.
+
+=== ztest2523529.c ===
+#include <string.h>
+#include <errno.h>
+int main() { return strlen(strerror(errno)); }
+===
+owcc -O -o ztest2523529 ztest2523529.c
+Checking for strerror... Yes.
+
+=== ztest2523529.c ===
+#include <unistd.h>
+int main() { return 0; }
+===
+owcc -c -O ztest2523529.c
+Checking for unistd.h... Yes.
+
+=== ztest2523529.c ===
+#include <stdarg.h>
+int main() { return 0; }
+===
+owcc -c -O ztest2523529.c
+Checking for stdarg.h... Yes.
+
+=== ztest2523529.c ===
+#include <stdio.h>
+#include <stdarg.h>
+#include "zconf.h"
+int main()
+{
+#ifndef STDC
+  choke me
+#endif
+  return 0;
+}
+===
+owcc -c -O ztest2523529.c
+Checking whether to use vs[n]printf() or s[n]printf()... using vs[n]printf().
+
+=== ztest2523529.c ===
+#include <stdio.h>
+#include <stdarg.h>
+int mytest(const char *fmt, ...)
+{
+  char buf[20];
+  va_list ap;
+  va_start(ap, fmt);
+  vsnprintf(buf, sizeof(buf), fmt, ap);
+  va_end(ap);
+  return 0;
+}
+int main()
+{
+  return (mytest("Hello%d\n", 1));
+}
+===
+owcc -O -o ztest2523529 ztest2523529.c
+Checking for vsnprintf() in stdio.h... Yes.
+
+=== ztest2523529.c ===
+#include <stdio.h>
+#include <stdarg.h>
+int mytest(const char *fmt, ...)
+{
+  int n;
+  char buf[20];
+  va_list ap;
+  va_start(ap, fmt);
+  n = vsnprintf(buf, sizeof(buf), fmt, ap);
+  va_end(ap);
+  return n;
+}
+int main()
+{
+  return (mytest("Hello%d\n", 1));
+}
+===
+owcc -c -O ztest2523529.c
+Checking for return value of vsnprintf()... Yes.
+
+ALL = static
+AR = ar
+ARFLAGS = rc
+CC = owcc
+CFLAGS = -O
+CPP =
+EXE =
+LDCONFIG = ldconfig
+LDFLAGS =
+LDSHARED = owcc
+LDSHAREDLIBC = -lc
+OBJC = $(OBJZ) $(OBJG)
+PIC_OBJC = $(PIC_OBJZ) $(PIC_OBJG)
+RANLIB = ranlib
+SFLAGS = -O
+SHAREDLIB =
+SHAREDLIBM =
+SHAREDLIBV =
+STATICLIB = libz.a
+TEST = all teststatic
+VER = 1.3.1
+SRCDIR =
+exec_prefix = ${prefix}
+includedir = ${prefix}/include
+libdir = ${exec_prefix}/lib
+mandir = ${prefix}/share/man
+prefix = /usr/local
+sharedlibdir = ${libdir}
+uname = Linux 6.12.57+deb13-amd64
+--------------------
+
+
+--------------------
+./configure
+Wed Jan 28 11:58:10 PM CET 2026
+=== ztest2524360.c ===
+extern int getchar();
+int hello() {return getchar();}
+===
+owcc -c ztest2524360.c
+... using owcc
+
+Checking for obsessive-compulsive compiler options...
+=== ztest2524360.c ===
+int foo() { return 0; }
+===
+owcc -c -bt=nt -l=nt_win ztest2524360.c
+Open Watcom C x86 32-bit Optimizing Compiler
+Version 2.0 beta Jul 31 2024 01:45:39 (32-bit)
+Copyright (c) 2002-2024 The Open Watcom Contributors. All Rights Reserved.
+Portions Copyright (c) 1984-2002 Sybase, Inc. All Rights Reserved.
+Source code is available under the Sybase Open Watcom Public License.
+See https://github.com/open-watcom/open-watcom-v2#readme for details.
+Error! E1139: Command line contains more than one file to compile
+Error: Compiler returned a bad status compiling 'ztest2524360.c'
+(exit code 1)
+Compiler error reporting is too harsh for ./configure (perhaps remove -Werror).
+** ./configure aborting.
+--------------------
+
+
