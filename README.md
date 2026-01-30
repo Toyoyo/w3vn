@@ -35,7 +35,9 @@ SSTDEMO.VNS
 TSTVN Engine - Win32s
 ```
 'S' line is the script file
+
 'T' line is the window Title
+
 Defaults: ``STVN.VNS`` & ``STVN Engine - Win32s``
 
 ## Supported formats / limitations:
