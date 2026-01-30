@@ -1,24 +1,21 @@
 # STVN
-A very simple visual novel engine for Atari ST on monochrome high-res mode.
+A very simple visual novel engine for Win32s and ulterior win32 implementations.
 
 ![stvn](/assets/stvn.png)
 
 ## Building
 To build this, you need the following:
 * GNU make
-* m68k-atari-mintelf gcc toolchain
-* vasmm68k_mot
+* OpenWatcom 2.0 beta
 * UPX for compression
 
 ## Prerequistes
-* Atari ST (STe if you want to use DMA SNDH files)
-* 512KiB ST-RAM or more.
-* Any TOS version should work (tested only on TOS 2.06 and EmuTOS)
+* Enhanced mode Windows 3.1 with win32s 1.30c or anything more recent (tested on WfW3.11, wine and windows 10)
 
 ## Running
 * Provide a script file following the documented syntax
 * Edit STVN.INI to meet your needs: script file and SNDH memory buffer, which should be the size of your largest SNDH file
-* Run STVN.PRG from GEM Desktop.
+* Run W3VN.EXE
 
 ## Key bindings
 * 'Space' to advance
@@ -27,6 +24,7 @@ To build this, you need the following:
 * 'l' Load state
 * 'b' Go back 1 text block
 * 'h' Show help screen
+* 'r' Reset window size
 
 ## STVN.INI settings
 As a sample, use the following:
