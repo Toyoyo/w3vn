@@ -404,11 +404,56 @@ static int read_keyboard_status(void);
 static int file_exists(const char *pathname);
 static char *get_line(FILE *fp);
 
-/* Macros converted to functions/inline */
+/* Macros */
 #define IMAGE_AREA_PIXELS (SCREEN_WIDTH * TEXT_AREA_START)
 #define TEXT_AREA_PIXELS (SCREEN_WIDTH * 80)
 #define RestoreScreen() memcpy(g_videoram, g_background, IMAGE_AREA_PIXELS * sizeof(uint32_t))
 #define SaveScreen() memcpy(g_background, g_videoram, IMAGE_AREA_PIXELS * sizeof(uint32_t))
+
+#define SaveMacro() {\
+    FILE *fd = fopen(savefile, "w");\
+    RestoreScreen();\
+    if (fd != NULL) {\
+        fprintf(fd, "%06ld%d%d%d%d%d%d%d%d%d%d\n", savepointer,\
+            choicedata[0], choicedata[1], choicedata[2], choicedata[3], choicedata[4],\
+            choicedata[5], choicedata[6], choicedata[7], choicedata[8], choicedata[9]);\
+        fprintf(fd, "%d\n", savehistory_idx);\
+        for (int i = 0; i < savehistory_idx; i++) {\
+            fprintf(fd, "%d\n", savehistory[i]);\
+        }\
+        fclose(fd);\
+    }\
+}
+
+#define FlushMessages() {\
+    MSG msg;\
+    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {\
+        TranslateMessage(&msg);\
+        DispatchMessage(&msg);\
+    }\
+}
+
+#define HandleSaveFilename(n) {\
+    if ((n) == 19) {\
+        snprintf(savefile, 14, "data\\sav0.sav");\
+    } else {\
+        snprintf(savefile, 14, "data\\sav%d.sav", (n) - 9);\
+    }\
+}
+
+#define ParseVCommand() {\
+    if (strlen(line) == 3) {\
+        char registername_s[2] = {0};\
+        memcpy(registername_s, line+1, 1);\
+        char registervalue_s[2] = {0};\
+        memcpy(registervalue_s, line+2, 1);\
+        int registername_i = atoi(registername_s);\
+        int registervalue_i = atoi(registervalue_s);\
+        if (registername_i >= 0 && registername_i < 10 && registervalue_i >= 0 && registervalue_i < 10) {\
+            choicedata[registername_i] = (char)registervalue_i;\
+        }\
+    }\
+}
 
 /* Draw a vertical line */
 static void DrawVLine(int x1, int y1, int y2) {
@@ -653,7 +698,9 @@ static void DispLoadSave(int mode) {
     }
 
     locate(35, 7);
-    print_string(mode == 0 ? "- Loading -" : "- Saving -");
+    if(mode == 0) print_string ("- Loading -");
+    if(mode == 1) print_string ("- Saving -");
+    if(mode == 2) print_string ("- Delete -");
 
     DrawHLine(240, 112, 400);
     DrawHLine(240, 240, 400);
@@ -1366,6 +1413,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     case 'B': g_lastkey = 5; break;
                     case 'H': g_lastkey = 6; break;
                     case 'R': g_lastkey = 7; break;
+                    case 'E': g_lastkey = 8; break;
                     case '1': g_lastkey = 10; break;
                     case '2': g_lastkey = 11; break;
                     case '3': g_lastkey = 12; break;
@@ -1575,24 +1623,27 @@ static void run(void) {
                         }
 
                         if (next != 2) {
-                            if (next == 19) {
-                                snprintf(savefile, 14, "data\\sav0.sav");
-                            } else {
-                                snprintf(savefile, 14, "data\\sav%d.sav", next - 9);
-                            }
+                            HandleSaveFilename(next);
+                            SaveMacro();
+                        }
+                        RestoreScreen();
+                        update_display();
+                    }
 
-                            FILE *fd = fopen(savefile, "w");
-                            RestoreScreen();
-                            if (fd != NULL) {
-                                fprintf(fd, "%06ld%d%d%d%d%d%d%d%d%d%d\n", savepointer,
-                                    choicedata[0], choicedata[1], choicedata[2], choicedata[3], choicedata[4],
-                                    choicedata[5], choicedata[6], choicedata[7], choicedata[8], choicedata[9]);
-                                fprintf(fd, "%d\n", savehistory_idx);
-                                for (int i = 0; i < savehistory_idx; i++) {
-                                    fprintf(fd, "%d\n", savehistory[i]);
-                                }
-                                fclose(fd);
-                            }
+                    if (next == 8) {
+                        SaveScreen();
+                        DispLoadSave(2);
+
+                        next = read_keyboard_status();
+                        while (NoValidSaveChoice(next) && g_running) {
+                            if (next == 7) RestoreWindowSize();
+                            next = read_keyboard_status();
+                            Sleep(5);
+                        }
+
+                        if (next != 2) {
+                            HandleSaveFilename(next);
+                            if(file_exists(savefile) == 0) remove(savefile);
                         }
                         RestoreScreen();
                         update_display();
@@ -1644,11 +1695,7 @@ static void run(void) {
 
                     lblloadsave:
                         if (next != 2) {
-                            if (next == 19) {
-                                snprintf(savefile, 14, "data\\sav0.sav");
-                            } else {
-                                snprintf(savefile, 14, "data\\sav%d.sav", next - 9);
-                            }
+                            HandleSaveFilename(next);
 
                             if (file_exists(savefile) == 0) {
                                 memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
@@ -1790,19 +1837,7 @@ static void run(void) {
                                     }
 
                                     if(*line == 'V') {
-                                        if(strlen(line) == 3) {
-                                            char registername_s[2] = {0};
-                                            memcpy(registername_s, line+1, 1);
-                                            char registervalue_s[2] = {0};
-                                            memcpy(registervalue_s, line+2, 1);
-
-                                            int registername_i=atoi(registername_s);
-                                            int registervalue_i=atoi(registervalue_s);
-
-                                            if(registername_i >= 0 && registername_i < 10 && registervalue_i >= 0 && registervalue_i < 10 ) {
-                                                choicedata[registername_i] = (char)registervalue_i;
-                                            }
-                                        }
+                                        ParseVCommand();
                                     }
                                 }
 
@@ -1938,14 +1973,7 @@ static void run(void) {
                         }
                         PlayMusic(musicfile);
                         isplaying = 1;
-                        /* Process queued messages while still blocking keyboard */
-                        {
-                            MSG msg;
-                            while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-                                TranslateMessage(&msg);
-                                DispatchMessage(&msg);
-                            }
-                        }
+                        FlushMessages();
                         g_effectrunning = 0;
                         g_lastkey = 0;
                     }
@@ -2001,19 +2029,7 @@ static void run(void) {
             }
 
             if(*line == 'V') {
-                if(strlen(line) == 3) {
-                    char registername_s[2] = {0};
-                    memcpy(registername_s, line+1, 1);
-                    char registervalue_s[2] = {0};
-                    memcpy(registervalue_s, line+2, 1);
-
-                    int registername_i=atoi(registername_s);
-                    int registervalue_i=atoi(registervalue_s);
-
-                    if(registername_i >= 0 && registername_i < 10 && registervalue_i >= 0 && registervalue_i < 10 ) {
-                        choicedata[registername_i] = (char)registervalue_i;
-                    }
-                }
+                ParseVCommand();
             }
 
             /* 'C': Choice */
@@ -2048,24 +2064,28 @@ static void run(void) {
                             }
 
                             if (savnext != 2) {
-                                if (savnext == 19) {
-                                    snprintf(savefile, 14, "data\\sav0.sav");
-                                } else {
-                                    snprintf(savefile, 14, "data\\sav%d.sav", savnext - 9);
-                                }
+                                HandleSaveFilename(savnext);
+                                SaveMacro();
+                            }
+                            next = 0;
+                            RestoreScreen();
+                            update_display();
+                        }
 
-                                FILE *fd = fopen(savefile, "w");
-                                RestoreScreen();
-                                if (fd != NULL) {
-                                    fprintf(fd, "%06ld%d%d%d%d%d%d%d%d%d%d\n", savepointer,
-                                        choicedata[0], choicedata[1], choicedata[2], choicedata[3], choicedata[4],
-                                        choicedata[5], choicedata[6], choicedata[7], choicedata[8], choicedata[9]);
-                                    fprintf(fd, "%d\n", savehistory_idx);
-                                    for (int i = 0; i < savehistory_idx; i++) {
-                                        fprintf(fd, "%d\n", savehistory[i]);
-                                    }
-                                    fclose(fd);
-                                }
+                        if (next == 8) {
+                            SaveScreen();
+                            DispLoadSave(2);
+
+                            next = read_keyboard_status();
+                            while (NoValidSaveChoice(next) && g_running) {
+                                if (next == 7) RestoreWindowSize();
+                                next = read_keyboard_status();
+                                Sleep(5);
+                            }
+
+                            if (next != 2) {
+                                HandleSaveFilename(next);
+                                if(file_exists(savefile) == 0) remove(savefile);
                             }
                             next = 0;
                             RestoreScreen();
@@ -2083,11 +2103,7 @@ static void run(void) {
                                 Sleep(5);
                             }
 
-                            if (ldnext == 19) {
-                                snprintf(savefile, 14, "data\\sav0.sav");
-                            } else {
-                                snprintf(savefile, 14, "data\\sav%d.sav", ldnext - 9);
-                            }
+                            HandleSaveFilename(ldnext);
 
                             RestoreScreen();
                             update_display();
@@ -2188,14 +2204,7 @@ static void run(void) {
                     if (effectnum == 39) { FxCircleIn(COLOR_BLACK); FxCircleIn(COLOR_WHITE); }
                     if (effectnum == 40) { FxCircleIn(COLOR_WHITE); FxCircleIn(COLOR_BLACK); }
 
-                    /* Process queued messages while still blocking keyboard */
-                    {
-                        MSG msg;
-                        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-                            TranslateMessage(&msg);
-                            DispatchMessage(&msg);
-                        }
-                    }
+                    FlushMessages();
                     g_effectrunning = 0;
                     g_lastkey = 0;  /* Clear any key pressed during effect */
                 }
