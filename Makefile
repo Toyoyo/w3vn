@@ -22,6 +22,8 @@ zlib:
 	cd $(ZLIB) ; wmake -f watcom/watcom_f.mak
 
 libpng:
+	cp deps/Makefile.libpng $(PNG)/Makefile
+	cp deps/pnglibconf.h $(PNG)/
 	cd $(PNG) ; wmake
 
 main:
@@ -44,3 +46,5 @@ clean:
 	if [ -f "$(PNG)/libpng.lib" ]; then\
 		cd $(PNG) ; wmake clean;\
 	fi
+	rm -f $(PNG)/Makefile
+	rm -f $(PNG)/pnglibconf.h

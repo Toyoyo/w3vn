@@ -1,0 +1,26 @@
+# Open Watcom Makefile for libpng
+# Builds libpng.lib for Win32
+
+ZLIB = ../zlib
+
+CC = wcc386
+CFLAGS = -w4 -e25 -zq -otexan -d1 -6r -bt=nt -mf -i=$(ZLIB)
+
+LIBR = wlib
+LIBFLAGS = -b -c -n -q -p=512
+
+OBJS = png.o pngerror.o pngget.o pngmem.o pngpread.o &
+       pngread.o pngrio.o pngrtran.o pngrutil.o pngset.o &
+       pngtrans.o pngwio.o pngwrite.o pngwtran.o pngwutil.o
+
+all: libpng.lib
+
+libpng.lib: $(OBJS)
+	$(LIBR) $(LIBFLAGS) $@ $(OBJS)
+
+.c.o:
+	$(CC) $(CFLAGS) $<
+
+clean: .SYMBOLIC
+	rm -f *.o *.err
+	rm -f libpng.lib
