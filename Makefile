@@ -2,7 +2,7 @@ SOURCES_DIR=./src
 BUILD_DIR=./build
 DIST_DIR=./dist
 RSC_DIR=./rsc
-ZLIB=./deps/zlib
+ZLIB=./deps/zlib-1.3.1
 PNG=./deps/libpng-1.6.54
 
 CC=wcl386
