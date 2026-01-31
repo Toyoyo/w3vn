@@ -2095,7 +2095,7 @@ static void run(void) {
 
                         Sleep(5);
                     }
-                    choicedata[(int)selectedregister] = (char)(next - 10);
+                    choicedata[(int)selectedregister] = (char)(next - 9);
                 }
             }
 
