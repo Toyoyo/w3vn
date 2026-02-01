@@ -1942,6 +1942,7 @@ static void run(void) {
 
             /* 'R': Restore background */
             if (*line == 'R') {
+                LoadBackgroundImage(picture, bgpalette, g_background);
                 RestoreScreen();
                 reset_cursprites();
                 spritecount = 0;
