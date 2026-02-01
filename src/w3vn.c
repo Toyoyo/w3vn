@@ -1752,6 +1752,7 @@ static void run(void) {
                                 char histline[255] = {0};
                                 if (fgets(histline, 255, savefp) != NULL && fgets(histline, 255, savefp) != NULL) {
                                     savehistory_idx = atoi(histline);
+                                    if(savehistory_idx > 999) savehistory_idx=999;
                                     memset(savehistory, 0, sizeof(savehistory));
                                     for (int j = 0; j < savehistory_idx && j < 1000; j++) {
                                         if (fgets(histline, 255, savefp) == NULL) {
@@ -1782,7 +1783,7 @@ static void run(void) {
                                     lineNumber++;
 
                                     if (*line == 'I') {
-                                        int filelen = (int)strlen(line);
+                                        int filelen = (int)strlen(line) - 1;
                                         if (filelen > 12) filelen = 12;
                                         memset(picture, 0, 18);
                                         snprintf(picture, 6, "data\\");
@@ -1797,7 +1798,7 @@ static void run(void) {
                                     }
 
                                     if (*line == 'A') {
-                                        if (strlen(line) >= 8) {
+                                        if (strlen(line) >= 8 && spritecount < 256) {
                                             int filelen = (int)strlen(line) - 7;
                                             if (filelen > 12) filelen = 12;
                                             memset(currentsprites[spritecount].file, 0, 18);
@@ -2232,7 +2233,7 @@ static void run(void) {
 
             /* 'A': Display sprite */
             if (*line == 'A') {
-                if (strlen(line) >= 8) {
+                if (strlen(line) >= 8 && spritecount < 256) {
                     int filelen = (int)strlen(line) - 7;
                     if (filelen > 12) filelen = 12;
                     memset(spritefile, 0, 18);
@@ -2248,7 +2249,6 @@ static void run(void) {
                     currentsprites[spritecount].y = posy;
                     memcpy(currentsprites[spritecount].file, line + 7, filelen);
                     spritecount++;
-
                     DisplaySprite(spritefile, posx, posy);
                 }
             }
