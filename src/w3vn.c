@@ -460,13 +460,13 @@ static char *get_line(FILE *fp);
 }
 
 #define DispEraseError() {\
+    RestoreScreen();\
     locate(0, 0);\
     print_string(" Delete failed! Press Space...");\
     update_display();\
     while (read_keyboard_status() != 1 && g_running) {\
         Sleep(5);\
     }\
-    RestoreScreen();\
 }
 
 #define DispSaveError() {\
