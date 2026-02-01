@@ -543,6 +543,7 @@ static void print_char(char c) {
     if (g_cursorY >= 20) {
         /* Start at pixel 322 (gap after border at 320), 15-pixel cell spacing */
         py = 322 + (g_cursorY - 20) * 15;
+        px += 2;  /* Shift text area 2 pixels right */
     } else {
         /* Image area uses standard 16-pixel cells */
         py = g_cursorY * 16;
