@@ -462,7 +462,7 @@ static char *get_line(FILE *fp);
 #define DispEraseError() {\
     RestoreScreen();\
     locate(0, 0);\
-    print_string(" Delete failed! Press Space...");\
+    print_string("Delete failed! Press Space...");\
     update_display();\
     while (read_keyboard_status() != 1 && g_running) {\
         Sleep(5);\
@@ -471,12 +471,29 @@ static char *get_line(FILE *fp);
 
 #define DispSaveError() {\
     locate(0, 0);\
-    print_string(" Save failed! Press Space...");\
+    print_string("Save failed! Press Space...");\
     update_display();\
     while (read_keyboard_status() != 1 && g_running) {\
         Sleep(5);\
     }\
     RestoreScreen();\
+}
+
+#define DeleteMacro() {\
+    next = read_keyboard_status();\
+    while (NoValidSaveChoice(next) && g_running) {\
+        if (next == 7) RestoreWindowSize();\
+        next = read_keyboard_status();\
+        Sleep(5);\
+    }\
+    if (next != 2) {\
+        HandleSaveFilename(next);\
+        if(file_exists(savefile) == 0) {\
+            if (remove(savefile) != 0) {\
+                DispEraseError();\
+            }\
+        }\
+    }\
 }
 
 /* Draw a vertical line */
@@ -1657,22 +1674,7 @@ static void run(void) {
                     if (next == 8) {
                         SaveScreen();
                         DispLoadSave(2);
-
-                        next = read_keyboard_status();
-                        while (NoValidSaveChoice(next) && g_running) {
-                            if (next == 7) RestoreWindowSize();
-                            next = read_keyboard_status();
-                            Sleep(5);
-                        }
-
-                        if (next != 2) {
-                            HandleSaveFilename(next);
-                            if(file_exists(savefile) == 0) {
-                                if (remove(savefile) != 0) {
-                                  DispEraseError();
-                                }
-                            }
-                        }
+                        DeleteMacro();
                         RestoreScreen();
                         update_display();
                     }
@@ -2104,22 +2106,7 @@ static void run(void) {
                         if (next == 8) {
                             SaveScreen();
                             DispLoadSave(2);
-
-                            next = read_keyboard_status();
-                            while (NoValidSaveChoice(next) && g_running) {
-                                if (next == 7) RestoreWindowSize();
-                                next = read_keyboard_status();
-                                Sleep(5);
-                            }
-
-                            if (next != 2) {
-                                HandleSaveFilename(next);
-                                if(file_exists(savefile) == 0) {
-                                    if (remove(savefile) != 0) {
-                                        DispEraseError();
-                                    }
-                                }
-                            }
+                            DeleteMacro();
                             next = 0;
                             RestoreScreen();
                             update_display();
