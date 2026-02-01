@@ -414,14 +414,18 @@ static char *get_line(FILE *fp);
     FILE *fd = fopen(savefile, "w");\
     RestoreScreen();\
     if (fd != NULL) {\
-        fprintf(fd, "%06ld%d%d%d%d%d%d%d%d%d%d\n", savepointer,\
+        int _err = 0;\
+        _err |= fprintf(fd, "%06ld%d%d%d%d%d%d%d%d%d%d\n", savepointer,\
             choicedata[0], choicedata[1], choicedata[2], choicedata[3], choicedata[4],\
-            choicedata[5], choicedata[6], choicedata[7], choicedata[8], choicedata[9]);\
-        fprintf(fd, "%d\n", savehistory_idx);\
+            choicedata[5], choicedata[6], choicedata[7], choicedata[8], choicedata[9]) < 0;\
+        _err |= fprintf(fd, "%d\n", savehistory_idx) < 0;\
         for (int i = 0; i < savehistory_idx; i++) {\
-            fprintf(fd, "%d\n", savehistory[i]);\
+            _err |= fprintf(fd, "%d\n", savehistory[i]) < 0;\
         }\
-        fclose(fd);\
+        _err |= fclose(fd) != 0;\
+        if (_err) DispSaveError();\
+    } else {\
+        DispSaveError();\
     }\
 }
 
@@ -453,6 +457,26 @@ static char *get_line(FILE *fp);
             choicedata[registername_i] = (char)registervalue_i;\
         }\
     }\
+}
+
+#define DispEraseError() {\
+    locate(0, 0);\
+    print_string(" Delete failed! Press Space...");\
+    update_display();\
+    while (read_keyboard_status() != 1 && g_running) {\
+        Sleep(5);\
+    }\
+    RestoreScreen();\
+}
+
+#define DispSaveError() {\
+    locate(0, 0);\
+    print_string(" Save failed! Press Space...");\
+    update_display();\
+    while (read_keyboard_status() != 1 && g_running) {\
+        Sleep(5);\
+    }\
+    RestoreScreen();\
 }
 
 /* Draw a vertical line */
@@ -1643,7 +1667,11 @@ static void run(void) {
 
                         if (next != 2) {
                             HandleSaveFilename(next);
-                            if(file_exists(savefile) == 0) remove(savefile);
+                            if(file_exists(savefile) == 0) {
+                                if (remove(savefile) != 0) {
+                                  DispEraseError();
+                                }
+                            }
                         }
                         RestoreScreen();
                         update_display();
@@ -2085,7 +2113,11 @@ static void run(void) {
 
                             if (next != 2) {
                                 HandleSaveFilename(next);
-                                if(file_exists(savefile) == 0) remove(savefile);
+                                if(file_exists(savefile) == 0) {
+                                    if (remove(savefile) != 0) {
+                                        DispEraseError();
+                                    }
+                                }
                             }
                             next = 0;
                             RestoreScreen();
