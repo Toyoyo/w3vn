@@ -1,5 +1,5 @@
 <img align="left" src="assets/w3vn-logo.png" width="80">&nbsp;                                                          
-# STVN                                                                                                                       
+# W3VN - STVN Win32s Port                                                                                                                      
 <br clear="left"> 
 A very simple visual novel engine for Win32s and ulterior win32 implementations.
 
