@@ -536,17 +536,13 @@ static void print_char(char c) {
     if (uc < 32) return;
     idx = uc - 32;
 
-    int px = g_cursorX * 8;
-    int py;
+    /* g_cursorX and g_cursorY are now pixel coordinates */
+    int px = g_cursorX;
+    int py = g_cursorY;
 
-    /* Text area (rows 20-24) uses 15-pixel spacing to fit with gaps at borders */
-    if (g_cursorY >= 20) {
-        /* Start at pixel 322 (gap after border at 320), 15-pixel cell spacing */
-        py = 322 + (g_cursorY - 20) * 15;
-        px += 2;  /* Shift text area 2 pixels right */
-    } else {
-        /* Image area uses standard 16-pixel cells */
-        py = g_cursorY * 16;
+    /* Text area (y >= 320) gets 2 pixel right shift */
+    if (py >= TEXT_AREA_START) {
+        px += 2;
     }
 
     if (px >= SCREEN_WIDTH || py >= SCREEN_HEIGHT) return;
@@ -567,7 +563,7 @@ static void print_char(char c) {
             }
         }
     }
-    g_cursorX++;
+    g_cursorX += 8;
 }
 
 /* Print a string */
@@ -575,7 +571,8 @@ static void print_string(const char *str) {
     while (*str) {
         if (*str == '\n') {
             g_cursorX = 0;
-            g_cursorY++;
+            /* Text area uses 15-pixel line height, image area uses 16 */
+            g_cursorY += (g_cursorY >= TEXT_AREA_START) ? 15 : 16;
         } else if (*str == '\r') {
             g_cursorX = 0;
         } else {
@@ -926,17 +923,16 @@ static int compare_sprites(void) {
 static void DispLoadSave(int mode) {
     char savepath[15] = {0};
 
-    /* Fill dialog area with white */
+    /* Fill dialog area with white - 161x129 centered in 640x320 */
     for (int y = 96; y <= 224; y++) {
         for (int x = 240; x <= 400; x++) {
             g_videoram[y * SCREEN_WIDTH + x] = COLOR_WHITE;
         }
     }
 
-    locate(35, 6);
-    if(mode == 0) print_string ("- Loading -");
-    if(mode == 1) print_string ("- Saving -");
-    if(mode == 2) print_string ("- Delete -");
+    if(mode == 0) { locate(277, 96); print_string("- Loading -"); }
+    if(mode == 1) { locate(281, 96); print_string("- Saving -"); }
+    if(mode == 2) { locate(281, 96); print_string("- Delete -"); }
 
     DrawHLine(240, 96, 400);
     DrawHLine(240, 224, 400);
@@ -945,7 +941,7 @@ static void DispLoadSave(int mode) {
 
     /* Left column: 1-5 */
     for (int i = 1; i <= 5; i++) {
-        locate(31, 6 + i);
+        locate(248, 96 + i * 16);
         snprintf(savepath, 15, "data\\sav%d.sav", i);
         if (file_exists(savepath) == 0) {
             print_char('0' + i);
@@ -958,7 +954,7 @@ static void DispLoadSave(int mode) {
 
     /* Right column: 6-9, 0 */
     for (int i = 6; i <= 9; i++) {
-        locate(41, 1 + i);
+        locate(328, (1 + i) * 16);
         snprintf(savepath, 15, "data\\sav%d.sav", i);
         if (file_exists(savepath) == 0) {
             print_char('0' + i);
@@ -969,14 +965,14 @@ static void DispLoadSave(int mode) {
         }
     }
 
-    locate(41, 11);
+    locate(328, 176);
     if (file_exists("data\\sav0.sav") == 0) {
         print_string("0: USED ");
     } else {
         print_string("0: EMPTY");
     }
 
-    locate(35, 13);
+    locate(280, 208);
     print_string("[q] : quit");
 
     update_display();
@@ -984,34 +980,34 @@ static void DispLoadSave(int mode) {
 
 /* Display help dialog */
 static void DispHelp(void) {
-    /* Fill dialog area with white */
+    /* Fill dialog area with white - 140x129 centered in 640x320 */
     for (int y = 96; y <= 224; y++) {
-        for (int x = 252; x <= 394; x++) {
+        for (int x = 250; x <= 389; x++) {
             g_videoram[y * SCREEN_WIDTH + x] = COLOR_WHITE;
         }
     }
 
-    locate(32, 6);
+    locate(252, 96);
     print_string("-     Usage     -");
-    locate(32, 7);
+    locate(252, 112);
     print_string("[q] Quit         ");
-    locate(32, 8);
+    locate(252, 128);
     print_string("[b] Back         ");
-    locate(32, 9);
+    locate(252, 144);
     print_string("[l] Load save    ");
-    locate(32, 10);
+    locate(252, 160);
     print_string("[s] Save state   ");
-    locate(32, 11);
+    locate(252, 176);
     print_string("[e] Erase save   ");
-    locate(32, 12);
+    locate(252, 192);
     print_string("[r] Restore size ");
-    locate(32, 13);
+    locate(252, 208);
     print_string("[ ] Advance      ");
 
-    DrawHLine(252, 96, 394);
-    DrawHLine(252, 224, 394);
-    DrawVLine(252, 96, 224);
-    DrawVLine(394, 96, 224);
+    DrawHLine(250, 96, 389);
+    DrawHLine(250, 224, 389);
+    DrawVLine(250, 96, 224);
+    DrawVLine(389, 96, 224);
 
     update_display();
 }
@@ -1805,9 +1801,9 @@ static void run(void) {
     } else {
         locate(0, 0);
         print_string("STVN.INI not found, using defaults:");
-        locate(0, 1);
+        locate(0, 16);
         print_string("Script file: DATA\\STVN.VNS");
-        locate(0, 2);
+        locate(0, 32);
         print_string("Press Space to continue...");
         update_display();
 
@@ -1822,7 +1818,7 @@ static void run(void) {
         locate(0, 0);
         print_string("Opening script failed: ");
         print_string(scriptfile);
-        locate(0, 1);
+        locate(0, 16);
         print_string("Press Space to quit...");
         update_display();
 
@@ -1884,7 +1880,7 @@ static void run(void) {
                         skipnexthistory = 1;
 
                         memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
-                        locate(0, 21);
+                        locate(0, 337);
                         print_string(" Rolling back...");
                         RedrawBorder();
                         update_display();
@@ -1926,7 +1922,7 @@ static void run(void) {
 
                             if (file_exists(savefile) == 0) {
                                 memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
-                                locate(0, 21);
+                                locate(0, 337);
                                 print_string(" Loading...");
                                 RedrawBorder();
                                 update_display();
@@ -2154,7 +2150,7 @@ static void run(void) {
                 memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
                 RedrawBorder();
 
-                locate(0, 20);
+                locate(0, 322);
                 print_string(line + 1);
 
                 savepointer = lineNumber;
@@ -2179,7 +2175,7 @@ static void run(void) {
 
             /* 'T': Text line */
             if (*line == 'T') {
-                locate(0, 21 + charlines);
+                locate(0, 337 + charlines * 15);
                 print_string(" ");
                 print_string(line + 1);
                 charlines++;
@@ -2340,7 +2336,7 @@ static void run(void) {
                             skipnexthistory = 1;
 
                             memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
-                            locate(0, 21);
+                            locate(0, 337);
                             print_string(" Rolling back...");
                             RedrawBorder();
                             update_display();
