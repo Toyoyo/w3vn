@@ -594,6 +594,199 @@ static void clear_screen(void) {
     g_cursorY = 0;
 }
 
+/* SCALED_RENDERING -> Scale rendering to 1280x800 (upscale x2) with hybrid filtering:
+   bilinear for image section and text section
+   nearest-neighbor for the text area border */
+#ifdef SCALED_RENDERING
+/* Nearest-neighbor scale a row */
+static void nn_row(uint32_t *src_row, uint32_t *dst_row, int dst_start, int dst_end,
+                   uint32_t x_ratio) {
+    for (int x = dst_start; x < dst_end; x++) {
+        dst_row[x] = src_row[(x * x_ratio) >> 16];
+    }
+}
+
+/* Bilinear scale a row segment */
+static void bilinear_row(uint32_t *row0, uint32_t *row1, uint32_t *dst_row,
+                         int dst_start, int dst_end, int src_w,
+                         uint32_t x_ratio, uint32_t fy) {
+    uint32_t ify = 256 - fy;
+    for (int x = dst_start; x < dst_end; x++) {
+        uint32_t src_xf = x * x_ratio;
+        int x0 = src_xf >> 16;
+        int x1 = (x0 < src_w - 1) ? x0 + 1 : x0;
+        uint32_t fx = (src_xf >> 8) & 0xFF;
+        uint32_t ifx = 256 - fx;
+
+        uint32_t p00 = row0[x0], p01 = row0[x1];
+        uint32_t p10 = row1[x0], p11 = row1[x1];
+
+        uint32_t b = (((p00 & 0xFF) * ifx + (p01 & 0xFF) * fx) * ify +
+                      ((p10 & 0xFF) * ifx + (p11 & 0xFF) * fx) * fy) >> 16;
+        uint32_t g = ((((p00 >> 8) & 0xFF) * ifx + ((p01 >> 8) & 0xFF) * fx) * ify +
+                      (((p10 >> 8) & 0xFF) * ifx + ((p11 >> 8) & 0xFF) * fx) * fy) >> 16;
+        uint32_t r = ((((p00 >> 16) & 0xFF) * ifx + ((p01 >> 16) & 0xFF) * fx) * ify +
+                      (((p10 >> 16) & 0xFF) * ifx + ((p11 >> 16) & 0xFF) * fx) * fy) >> 16;
+
+        dst_row[x] = 0xFF000000 | (r << 16) | (g << 8) | b;
+    }
+}
+
+/* Per-pixel hybrid row: NN near borders, bilinear elsewhere */
+static void hybrid_row(uint32_t *row_nn, uint32_t *row0, uint32_t *row1, uint32_t *dst_row,
+                       int dst_w, int src_w, uint32_t x_ratio_nn, uint32_t x_ratio_bl,
+                       uint32_t fy, int left_end, int right_start) {
+    uint32_t ify = 256 - fy;
+    for (int x = 0; x < dst_w; x++) {
+        if (x < left_end || x >= right_start) {
+            dst_row[x] = row_nn[(x * x_ratio_nn) >> 16];
+        } else {
+            uint32_t src_xf = x * x_ratio_bl;
+            int x0 = src_xf >> 16;
+            int x1 = (x0 < src_w - 1) ? x0 + 1 : x0;
+            uint32_t fx = (src_xf >> 8) & 0xFF;
+            uint32_t ifx = 256 - fx;
+
+            uint32_t p00 = row0[x0], p01 = row0[x1];
+            uint32_t p10 = row1[x0], p11 = row1[x1];
+
+            uint32_t b = (((p00 & 0xFF) * ifx + (p01 & 0xFF) * fx) * ify +
+                          ((p10 & 0xFF) * ifx + (p11 & 0xFF) * fx) * fy) >> 16;
+            uint32_t g = ((((p00 >> 8) & 0xFF) * ifx + ((p01 >> 8) & 0xFF) * fx) * ify +
+                          (((p10 >> 8) & 0xFF) * ifx + ((p11 >> 8) & 0xFF) * fx) * fy) >> 16;
+            uint32_t r = ((((p00 >> 16) & 0xFF) * ifx + ((p01 >> 16) & 0xFF) * fx) * ify +
+                          (((p10 >> 16) & 0xFF) * ifx + ((p11 >> 16) & 0xFF) * fx) * fy) >> 16;
+
+            dst_row[x] = 0xFF000000 | (r << 16) | (g << 8) | b;
+        }
+    }
+}
+
+/* Scale framebuffer: bilinear everywhere, nearest-neighbor for text box border */
+static void hybrid_scale(uint32_t *src, int src_w, int src_h,
+                         uint32_t *dst, int dst_w, int dst_h) {
+    uint32_t x_ratio_bl = ((src_w - 1) << 16) / dst_w;
+    uint32_t y_ratio_bl = ((src_h - 1) << 16) / dst_h;
+    uint32_t x_ratio_nn = (src_w << 16) / dst_w;
+    uint32_t y_ratio_nn = (src_h << 16) / dst_h;
+
+    /* Text area boundaries in flipped buffer */
+    int text_top_flipped = src_h - TEXT_AREA_START - 1;
+    int h_border_margin = 2;  /* Margin for horizontal borders (top/bottom) */
+    int v_border_width = 1;   /* Actual vertical border width (left/right) */
+
+    /* Destination Y boundaries */
+    int text_area_end = ((src_h - TEXT_AREA_START) * dst_h) / src_h;
+    int bot_border_end = ((h_border_margin + 1) * dst_h) / src_h;
+    int top_border_start = ((text_top_flipped - h_border_margin) * dst_h) / src_h;
+    int top_border_end = ((text_top_flipped + h_border_margin + 1) * dst_h) / src_h;
+    /* Clamp top border to not extend into image area */
+    if (top_border_end > text_area_end) top_border_end = text_area_end;
+
+    /* Destination X boundaries for left/right borders (narrow - just the border itself) */
+    int left_end = ((v_border_width + 1) * dst_w) / src_w;
+    int right_start = ((src_w - v_border_width) * dst_w) / src_w;
+
+    /* First and last text content rows (for per-pixel branching) */
+    int first_text_row = bot_border_end;
+    int last_text_row = top_border_start - 1;
+
+    for (int y = 0; y < dst_h; y++) {
+        uint32_t *out = dst + y * dst_w;
+        int src_y_nn = (y * y_ratio_nn) >> 16;
+        uint32_t *row_nn = src + src_y_nn * src_w;
+
+        uint32_t src_yf = y * y_ratio_bl;
+        int y0 = src_yf >> 16;
+        int y1 = (y0 < src_h - 1) ? y0 + 1 : y0;
+        uint32_t fy = (src_yf >> 8) & 0xFF;
+        uint32_t *row0 = src + y0 * src_w;
+        uint32_t *row1 = src + y1 * src_w;
+
+        if (y < bot_border_end || (y >= top_border_start && y < top_border_end)) {
+            /* Horizontal border rows: all nearest-neighbor */
+            nn_row(row_nn, out, 0, dst_w, x_ratio_nn);
+        } else if (y == first_text_row || y == last_text_row) {
+            /* First/last text rows: per-pixel branching */
+            hybrid_row(row_nn, row0, row1, out, dst_w, src_w,
+                       x_ratio_nn, x_ratio_bl, fy, left_end, right_start);
+        } else if (y < text_area_end) {
+            /* Text content rows: NN for left/right borders, bilinear for middle */
+            nn_row(row_nn, out, 0, left_end, x_ratio_nn);
+            bilinear_row(row0, row1, out, left_end, right_start, src_w, x_ratio_bl, fy);
+            nn_row(row_nn, out, right_start, dst_w, x_ratio_nn);
+        } else {
+            /* Image area: all bilinear */
+            bilinear_row(row0, row1, out, 0, dst_w, src_w, x_ratio_bl, fy);
+        }
+    }
+}
+
+/* Update the Windows display from our framebuffer */
+static void update_display(void) {
+    if (!g_hwnd || !g_videoram) return;
+
+    RECT rect;
+    GetClientRect(g_hwnd, &rect);
+    int dst_w = rect.right;
+    int dst_h = rect.bottom;
+
+    if (dst_w <= 0 || dst_h <= 0) return;
+
+    /* Allocate scaled buffer */
+    uint32_t *scaled = (uint32_t *)malloc(dst_w * dst_h * sizeof(uint32_t));
+    if (!scaled) return;
+
+    /* Flip source for bottom-up DIB format, then scale with bicubic */
+    uint32_t *flipped = (uint32_t *)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint32_t));
+    if (!flipped) {
+        free(scaled);
+        return;
+    }
+
+    for (int y = 0; y < SCREEN_HEIGHT; y++) {
+        memcpy(flipped + y * SCREEN_WIDTH,
+               g_videoram + (SCREEN_HEIGHT - 1 - y) * SCREEN_WIDTH,
+               SCREEN_WIDTH * sizeof(uint32_t));
+    }
+
+    /* Apply hybrid scaling: bilinear for image, nearest-neighbor for text */
+    hybrid_scale(flipped, SCREEN_WIDTH, SCREEN_HEIGHT, scaled, dst_w, dst_h);
+
+    /* Use 32-bit DIB (BI_RGB) for Win32s compatibility */
+    BITMAPINFOHEADER bmi;
+    memset(&bmi, 0, sizeof(bmi));
+    bmi.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.biWidth = dst_w;
+    bmi.biHeight = dst_h; /* Positive = bottom-up DIB */
+    bmi.biPlanes = 1;
+    bmi.biBitCount = 32;
+    bmi.biCompression = BI_RGB;
+    bmi.biSizeImage = 0;
+
+    HDC hdc = GetDC(g_hwnd);
+    if (hdc) {
+        /* No stretching needed - scaled buffer matches window size */
+        SetDIBitsToDevice(hdc, 0, 0, dst_w, dst_h,
+                          0, 0, 0, dst_h,
+                          scaled, (BITMAPINFO *)&bmi, DIB_RGB_COLORS);
+        ReleaseDC(g_hwnd, hdc);
+    }
+
+    free(flipped);
+    free(scaled);
+}
+
+/* Restore window to 1280x800 size */
+static void RestoreWindowSize(void) {
+    RECT rect = {0, 0, 1280, 800};
+    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
+    SetWindowPos(g_hwnd, NULL, 0, 0, rect.right - rect.left, rect.bottom - rect.top,
+                 SWP_NOMOVE | SWP_NOZORDER);
+}
+
+/* Default to non-scaled rendering: 640x400 screen with nearest-neighbor interpolation when resizing the window */
+#else
 /* Update the Windows display from our framebuffer */
 static void update_display(void) {
     if (!g_hwnd || !g_videoram) return;
@@ -640,6 +833,7 @@ static void RestoreWindowSize(void) {
     SetWindowPos(g_hwnd, NULL, 0, 0, rect.right - rect.left, rect.bottom - rect.top,
                  SWP_NOMOVE | SWP_NOZORDER);
 }
+#endif
 
 /* Check if a file exists */
 static int file_exists(const char *pathname) {
@@ -2304,6 +2498,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         MessageBox(NULL, "Window Creation Failed!", "Error", MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
+
+/* if SCALED_RENDERING is defined, we will resize the window when starting */
+#ifdef SCALED_RENDERING
+    RestoreWindowSize();
+#endif
 
     /* Allocate framebuffers (32-bit BGRA) */
     g_videoram = (uint32_t *)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint32_t));
