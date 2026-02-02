@@ -927,25 +927,25 @@ static void DispLoadSave(int mode) {
     char savepath[15] = {0};
 
     /* Fill dialog area with white */
-    for (int y = 112; y <= 240; y++) {
+    for (int y = 96; y <= 224; y++) {
         for (int x = 240; x <= 400; x++) {
             g_videoram[y * SCREEN_WIDTH + x] = COLOR_WHITE;
         }
     }
 
-    locate(35, 7);
+    locate(35, 6);
     if(mode == 0) print_string ("- Loading -");
     if(mode == 1) print_string ("- Saving -");
     if(mode == 2) print_string ("- Delete -");
 
-    DrawHLine(240, 112, 400);
-    DrawHLine(240, 240, 400);
-    DrawVLine(240, 112, 240);
-    DrawVLine(400, 112, 240);
+    DrawHLine(240, 96, 400);
+    DrawHLine(240, 224, 400);
+    DrawVLine(240, 96, 224);
+    DrawVLine(400, 96, 224);
 
     /* Left column: 1-5 */
     for (int i = 1; i <= 5; i++) {
-        locate(31, 7 + i);
+        locate(31, 6 + i);
         snprintf(savepath, 15, "data\\sav%d.sav", i);
         if (file_exists(savepath) == 0) {
             print_char('0' + i);
@@ -958,7 +958,7 @@ static void DispLoadSave(int mode) {
 
     /* Right column: 6-9, 0 */
     for (int i = 6; i <= 9; i++) {
-        locate(41, 2 + i);
+        locate(41, 1 + i);
         snprintf(savepath, 15, "data\\sav%d.sav", i);
         if (file_exists(savepath) == 0) {
             print_char('0' + i);
@@ -969,14 +969,14 @@ static void DispLoadSave(int mode) {
         }
     }
 
-    locate(41, 12);
+    locate(41, 11);
     if (file_exists("data\\sav0.sav") == 0) {
         print_string("0: USED ");
     } else {
         print_string("0: EMPTY");
     }
 
-    locate(35, 14);
+    locate(35, 13);
     print_string("[q] : quit");
 
     update_display();
@@ -985,31 +985,33 @@ static void DispLoadSave(int mode) {
 /* Display help dialog */
 static void DispHelp(void) {
     /* Fill dialog area with white */
-    for (int y = 127; y <= 239; y++) {
-        for (int x = 264; x <= 400; x++) {
+    for (int y = 96; y <= 224; y++) {
+        for (int x = 252; x <= 394; x++) {
             g_videoram[y * SCREEN_WIDTH + x] = COLOR_WHITE;
         }
     }
 
-    locate(33, 8);
+    locate(32, 6);
     print_string("-     Usage     -");
-    locate(33, 9);
+    locate(32, 7);
     print_string("[q] Quit         ");
-    locate(33, 10);
+    locate(32, 8);
     print_string("[b] Back         ");
-    locate(33, 11);
+    locate(32, 9);
     print_string("[l] Load save    ");
-    locate(33, 12);
+    locate(32, 10);
     print_string("[s] Save state   ");
-    locate(33, 13);
+    locate(32, 11);
+    print_string("[e] Erase save   ");
+    locate(32, 12);
     print_string("[r] Restore size ");
-    locate(33, 14);
+    locate(32, 13);
     print_string("[ ] Advance      ");
 
-    DrawHLine(264, 127, 400);
-    DrawHLine(264, 239, 400);
-    DrawVLine(264, 127, 239);
-    DrawVLine(400, 127, 239);
+    DrawHLine(252, 96, 394);
+    DrawHLine(252, 224, 394);
+    DrawVLine(252, 96, 224);
+    DrawVLine(394, 96, 224);
 
     update_display();
 }
