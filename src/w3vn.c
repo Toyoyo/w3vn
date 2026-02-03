@@ -2277,6 +2277,7 @@ static void run(void) {
                 if (filelen > 0) {
                     char videofile[260];
                     int stopvideo = 0;
+                    int rollbackvideo = 0;
                     MSG vmsg;
                     if (filelen > 250) filelen = 250;
                     snprintf(videofile, sizeof(videofile), "data\\%.*s", filelen, line + 1);
@@ -2292,9 +2293,6 @@ static void run(void) {
                     }
 
                     PlayVideo(videofile);
-                    FlushMessages();
-                    g_lastkey = 0;
-
                     /* Wait for video to finish or space to skip */
                     while (IsVideoPlaying() && g_running && !stopvideo) {
                         /* Process all messages, check for space key */
@@ -2305,6 +2303,12 @@ static void run(void) {
                                 stopvideo = 1;
                             } else if (vmsg.message == WM_KEYDOWN && vmsg.wParam == 'R') {
                                 RestoreWindowSize();
+                            } else if (vmsg.message == WM_KEYDOWN && vmsg.wParam == 'B') {
+                                /* Only stop video for rollback if rollback is possible */
+                                if (savehistory_idx >= 2) {
+                                    stopvideo = 1;
+                                    rollbackvideo = 1;
+                                }
                             } else {
                                 TranslateMessage(&vmsg);
                                 DispatchMessage(&vmsg);
@@ -2318,6 +2322,23 @@ static void run(void) {
                     StopVideo();
                     g_effectrunning = 0;
                     g_lastkey = 0;
+
+                        printf("Rolling back to %d", savehistory[savehistory_idx - 2]);
+                    /* Handle rollback if 'B' was pressed during video */
+                    if (rollbackvideo && savehistory_idx >= 2) {
+                        save_linenb = savehistory[savehistory_idx - 2];
+                        savehistory[savehistory_idx - 1] = 0;
+                        savehistory_idx--;
+                        skipnexthistory = 1;
+                        isbackfunc = 1;
+
+                        memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
+                        locate(0, 337);
+                        print_string(" Rolling back...");
+                        RedrawBorder();
+                        update_display();
+                        goto seektoline;
+                    }
                 }
             }
 
