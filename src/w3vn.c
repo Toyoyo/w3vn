@@ -75,6 +75,8 @@ static char g_currentMusic[260] = {0};
 
 /* Video state - using MCI for AVI playback */
 static int g_videoPlaying = 0;
+static int g_videoWidth = 0;
+static int g_videoHeight = 0;
 
 /* Forward declaration */
 static void RestartMusic(void);
@@ -167,8 +169,11 @@ static void StopMusic(void) {
 /* Play a video file (AVI) in the image area */
 static void PlayVideo(const char *filename) {
     char cmd[512];
+    char result[128];
     RECT rect;
-    int video_h;
+    int area_w, area_h;
+    int video_w = 0, video_h = 0;
+    int dest_x, dest_y, dest_w, dest_h;
 
     /* Stop any currently playing video */
     if (g_videoPlaying) {
@@ -187,10 +192,54 @@ static void PlayVideo(const char *filename) {
     snprintf(cmd, sizeof(cmd), "window video handle %lu", (unsigned long)(uintptr_t)g_hwnd);
     mciSendString(cmd, NULL, 0, NULL);
 
-    /* Set destination rectangle (image area) */
+    /* Fill image area with black for letterboxing */
+    {
+        int i;
+        int image_pixels = SCREEN_WIDTH * TEXT_AREA_START;
+        for (i = 0; i < image_pixels; i++) {
+            g_videoram[i] = COLOR_BLACK;
+        }
+        update_display();
+    }
+
+    /* Get video native dimensions */
+    if (mciSendString("where video source", result, sizeof(result), NULL) == 0) {
+        /* Result format: "x y width height" */
+        sscanf(result, "%*d %*d %d %d", &video_w, &video_h);
+    }
+    /* Store for resize handler */
+    g_videoWidth = video_w;
+    g_videoHeight = video_h;
+
+    /* Calculate destination area (image portion of window) */
     GetClientRect(g_hwnd, &rect);
-    video_h = (rect.bottom * TEXT_AREA_START) / SCREEN_HEIGHT;
-    snprintf(cmd, sizeof(cmd), "put video destination at 0 0 %d %d", (int)rect.right, video_h);
+    area_w = rect.right;
+    area_h = (rect.bottom * TEXT_AREA_START) / SCREEN_HEIGHT;
+
+    /* Calculate aspect-ratio-preserving destination rectangle */
+    if (video_w > 0 && video_h > 0) {
+        /* Scale to fit while maintaining aspect ratio */
+        if (video_w * area_h > video_h * area_w) {
+            /* Video is wider than area - fit to width */
+            dest_w = area_w;
+            dest_h = (video_h * area_w) / video_w;
+        } else {
+            /* Video is taller than area - fit to height */
+            dest_h = area_h;
+            dest_w = (video_w * area_h) / video_h;
+        }
+        /* Center in area */
+        dest_x = (area_w - dest_w) / 2;
+        dest_y = (area_h - dest_h) / 2;
+    } else {
+        /* Fallback: stretch to fill */
+        dest_x = 0;
+        dest_y = 0;
+        dest_w = area_w;
+        dest_h = area_h;
+    }
+
+    snprintf(cmd, sizeof(cmd), "put video destination at %d %d %d %d", dest_x, dest_y, dest_w, dest_h);
     mciSendString(cmd, NULL, 0, NULL);
 
     /* Start playback */
@@ -207,6 +256,8 @@ static void StopVideo(void) {
     mciSendString("stop video wait", NULL, 0, NULL);
     mciSendString("close video wait", NULL, 0, NULL);
     g_videoPlaying = 0;
+    g_videoWidth = 0;
+    g_videoHeight = 0;
 }
 
 /* Check if video is still playing */
@@ -1761,14 +1812,36 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         case WM_SIZE:
-            /* Handle video resize */
+            /* Handle video resize with aspect ratio preservation */
             if (g_videoPlaying) {
                 char rcmd[128];
                 RECT rrect;
-                int rvideo_h;
+                int area_w, area_h;
+                int dest_x, dest_y, dest_w, dest_h;
+
                 GetClientRect(g_hwnd, &rrect);
-                rvideo_h = (rrect.bottom * TEXT_AREA_START) / SCREEN_HEIGHT;
-                snprintf(rcmd, sizeof(rcmd), "put video destination at 0 0 %d %d", (int)rrect.right, rvideo_h);
+                area_w = rrect.right;
+                area_h = (rrect.bottom * TEXT_AREA_START) / SCREEN_HEIGHT;
+
+                if (g_videoWidth > 0 && g_videoHeight > 0) {
+                    /* Scale to fit while maintaining aspect ratio */
+                    if (g_videoWidth * area_h > g_videoHeight * area_w) {
+                        dest_w = area_w;
+                        dest_h = (g_videoHeight * area_w) / g_videoWidth;
+                    } else {
+                        dest_h = area_h;
+                        dest_w = (g_videoWidth * area_h) / g_videoHeight;
+                    }
+                    dest_x = (area_w - dest_w) / 2;
+                    dest_y = (area_h - dest_h) / 2;
+                } else {
+                    dest_x = 0;
+                    dest_y = 0;
+                    dest_w = area_w;
+                    dest_h = area_h;
+                }
+
+                snprintf(rcmd, sizeof(rcmd), "put video destination at %d %d %d %d", dest_x, dest_y, dest_w, dest_h);
                 mciSendString(rcmd, NULL, 0, NULL);
             }
             break;
@@ -1827,6 +1900,7 @@ static void run(void) {
     long save_linenb = 0;
     int skipnexthistory = 0;
     int loadsave = 0;
+    int backfromvideo = 0;
 
     char spritefile[260] = {0};
     int posx = 0;
@@ -2150,7 +2224,7 @@ static void run(void) {
                                 charlines = 0;
 
                                 /* Display sprites */
-                                if (compare_sprites() != 0 || loadsave == 1) {
+                                if (compare_sprites() != 0 || loadsave == 1 || backfromvideo == 1) {
                                     for (int sc = 0; sc < spritecount; sc++) {
                                         memset(spritefile, 0, sizeof(spritefile));
                                         snprintf(spritefile, sizeof(spritefile), "data\\%s", currentsprites[sc].file);
@@ -2171,6 +2245,7 @@ static void run(void) {
                                     }
                                 }
 
+                                backfromvideo = 0;
                                 loadsave = 0;
                                 break;
                             }
@@ -2292,6 +2367,9 @@ static void run(void) {
                         memset(oldmusicfile, 0, sizeof(oldmusicfile));
                     }
 
+                    /* Also invalidate oldpicture to force a background redraw in case of rollback */
+                    memset(oldpicture, 0, sizeof(oldpicture));
+
                     PlayVideo(videofile);
                     /* Wait for video to finish or space to skip */
                     while (IsVideoPlaying() && g_running && !stopvideo) {
@@ -2320,10 +2398,10 @@ static void run(void) {
                     }
 
                     StopVideo();
+                    RestoreScreen();
                     g_effectrunning = 0;
                     g_lastkey = 0;
 
-                        printf("Rolling back to %d", savehistory[savehistory_idx - 2]);
                     /* Handle rollback if 'B' was pressed during video */
                     if (rollbackvideo && savehistory_idx >= 2) {
                         save_linenb = savehistory[savehistory_idx - 2];
@@ -2331,6 +2409,7 @@ static void run(void) {
                         savehistory_idx--;
                         skipnexthistory = 1;
                         isbackfunc = 1;
+                        backfromvideo = 1;  /* Force sprite redraw in seektoline */
 
                         memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
                         locate(0, 337);
