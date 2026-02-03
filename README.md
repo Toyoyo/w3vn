@@ -175,6 +175,8 @@ Supported operands:
 
    It's worth noting that at least Windows 10 natively includes an mpeg1 decoder, so this format should be the most compatible one.
 
+   A note about wine: on Debian, the mpeg1 codecs are in the gstreamer1.0-plugins-bad package, which need to be installed for the i386 architecture
+
 * 'X' : Trigger a visual effect.
 
   Syntax: ``X[XX]`` like ``X03``
