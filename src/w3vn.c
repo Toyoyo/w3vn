@@ -2283,6 +2283,14 @@ static void run(void) {
                     g_effectrunning = 1;
                     RedrawBorder();
                     update_display();
+
+                    /* Stop music playing and invalidate oldmusicfile in case of rollback */
+                    if (isplaying) {
+                        StopMusic();
+                        isplaying = 0;
+                        memset(oldmusicfile, 0, sizeof(oldmusicfile));
+                    }
+
                     PlayVideo(videofile);
                     FlushMessages();
                     g_lastkey = 0;
