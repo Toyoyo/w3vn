@@ -898,11 +898,11 @@ static int file_exists(const char *pathname) {
 
 /* Read a line from file */
 static char *get_line(FILE *fp) {
-    static char newline[256] = {0};
+    static char newline[300] = {0};
     if (fp == NULL) return NULL;
 
-    newline[255] = '\0';
-    if (fgets(newline, 256, fp) == NULL) return NULL;
+    newline[299] = '\0';
+    if (fgets(newline, 300, fp) == NULL) return NULL;
 
     size_t len = strlen(newline);
     if (len > 0 && newline[len - 1] == '\n') newline[len - 1] = '\0';
