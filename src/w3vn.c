@@ -934,7 +934,7 @@ static int read_keyboard_status(void) {
 typedef struct {
     int x;
     int y;
-    char file[18];
+    char file[260];
 } sprite;
 
 static sprite currentsprites[256];
@@ -945,9 +945,9 @@ static void backup_spritearray(void) {
         previoussprites[i].x = currentsprites[i].x;
         previoussprites[i].y = currentsprites[i].y;
         if (strlen(currentsprites[i].file) > 0) {
-            memcpy(previoussprites[i].file, currentsprites[i].file, 18);
+            memcpy(previoussprites[i].file, currentsprites[i].file, 260);
         } else {
-            memset(previoussprites[i].file, 0, 18);
+            memset(previoussprites[i].file, 0, 260);
         }
     }
 }
@@ -956,7 +956,7 @@ static void reset_cursprites(void) {
     for (int i = 0; i <= 255; i++) {
         currentsprites[i].x = 0;
         currentsprites[i].y = 0;
-        memset(currentsprites[i].file, 0, 18);
+        memset(currentsprites[i].file, 0, 260);
     }
 }
 
@@ -964,7 +964,7 @@ static void reset_prevsprites(void) {
     for (int i = 0; i <= 255; i++) {
         previoussprites[i].x = 0;
         previoussprites[i].y = 0;
-        memset(previoussprites[i].file, 0, 18);
+        memset(previoussprites[i].file, 0, 260);
     }
 }
 
@@ -972,7 +972,7 @@ static int compare_sprites(void) {
     for (int i = 0; i <= 255; i++) {
         if (currentsprites[i].x != previoussprites[i].x) return 1;
         if (currentsprites[i].y != previoussprites[i].y) return 1;
-        if (strncmp(currentsprites[i].file, previoussprites[i].file, 18) != 0) return 1;
+        if (strncmp(currentsprites[i].file, previoussprites[i].file, 260) != 0) return 1;
     }
     return 0;
 }
@@ -1810,10 +1810,10 @@ static void run(void) {
     FILE *config;
     long lineNumber = 0;
     char *line;
-    char picture[18] = {0};
-    char oldpicture[18] = {0};
-    char musicfile[18] = {0};
-    char oldmusicfile[18] = {0};
+    char picture[260] = {0};
+    char oldpicture[260] = {0};
+    char musicfile[260] = {0};
+    char oldmusicfile[260] = {0};
     int charlines = 0;
     int isplaying = 0;
     int willplaying = 0;
@@ -1828,7 +1828,7 @@ static void run(void) {
     int skipnexthistory = 0;
     int loadsave = 0;
 
-    char spritefile[18] = {0};
+    char spritefile[260] = {0};
     int posx = 0;
     int posy = 0;
     int isbackfunc = 0;
@@ -1839,7 +1839,7 @@ static void run(void) {
     reset_prevsprites();
 
     int spritecount = 0;
-    char scriptfile[256] = "data\\stvn.vns";
+    char scriptfile[260] = "data\\stvn.vns";
 
     choicedata = (char *)malloc(11);
     if (choicedata == NULL) return;
@@ -1856,10 +1856,9 @@ static void run(void) {
             if (strlen(line) > 0) {
                 if (*line == 'S') {
                     int filelength = (int)strlen(line) - 1;
-                    if (filelength > 12) filelength = 12;
+                    if (filelength > 250) filelength = 250;
                     memset(scriptfile, 0, sizeof(scriptfile));
-                    snprintf(scriptfile, 6, "data\\");
-                    memcpy(scriptfile + 5, line + 1, filelength);
+                    snprintf(scriptfile, sizeof(scriptfile), "data\\%.*s", filelength, line + 1);
                 }
                 if (*line == 'T') {
                     strncpy(g_windowTitle, line+1, sizeof(g_windowTitle) - 2);
@@ -2049,10 +2048,9 @@ static void run(void) {
 
                                     if (*line == 'I') {
                                         int filelen = (int)strlen(line) - 1;
-                                        if (filelen > 12) filelen = 12;
-                                        memset(picture, 0, 18);
-                                        snprintf(picture, 6, "data\\");
-                                        memcpy(picture + 5, line + 1, filelen);
+                                        if (filelen > 250) filelen = 250;
+                                        memset(picture, 0, sizeof(picture));
+                                        snprintf(picture, sizeof(picture), "data\\%.*s", filelen, line + 1);
                                         reset_cursprites();
                                         spritecount = 0;
                                     }
@@ -2065,8 +2063,8 @@ static void run(void) {
                                     if (*line == 'A') {
                                         if (strlen(line) >= 8 && spritecount < 256) {
                                             int filelen = (int)strlen(line) - 7;
-                                            if (filelen > 12) filelen = 12;
-                                            memset(currentsprites[spritecount].file, 0, 18);
+                                            if (filelen > 250) filelen = 250;
+                                            memset(currentsprites[spritecount].file, 0, sizeof(currentsprites[spritecount].file));
                                             memcpy(currentsprites[spritecount].file, line + 7, filelen);
                                             memset(linex, 0, 4);
                                             memset(liney, 0, 4);
@@ -2081,10 +2079,9 @@ static void run(void) {
                                     if (*line == 'P') {
                                         int filelen = (int)strlen(line) - 1;
                                         if (filelen > 0) {
-                                            if (filelen > 12) filelen = 12;
-                                            memset(musicfile, 0, 18);
-                                            snprintf(musicfile, 6, "data\\");
-                                            memcpy(musicfile + 5, line + 1, filelen);
+                                            if (filelen > 250) filelen = 250;
+                                            memset(musicfile, 0, sizeof(musicfile));
+                                            snprintf(musicfile, sizeof(musicfile), "data\\%.*s", filelen, line + 1);
                                             willplaying = 1;
                                         }
                                     }
@@ -2141,12 +2138,12 @@ static void run(void) {
                                 if (loadsave == 0) {
                                     if (strcmp(picture, oldpicture) != 0 || compare_sprites() != 0) {
                                         LoadBackgroundImage(picture, bgpalette, g_background);
-                                        memcpy(oldpicture, picture, 18);
+                                        memcpy(oldpicture, picture, sizeof(oldpicture));
                                         RestoreScreen();
                                     }
                                 } else {
                                     LoadBackgroundImage(picture, bgpalette, g_background);
-                                    memcpy(oldpicture, picture, 18);
+                                    memcpy(oldpicture, picture, sizeof(oldpicture));
                                     RestoreScreen();
                                 }
 
@@ -2156,20 +2153,19 @@ static void run(void) {
                                 if (compare_sprites() != 0 || loadsave == 1) {
                                     for (int sc = 0; sc < spritecount; sc++) {
                                         memset(spritefile, 0, sizeof(spritefile));
-                                        snprintf(spritefile, 6, "data\\");
-                                        memcpy(spritefile + 5, currentsprites[sc].file, strlen(currentsprites[sc].file));
+                                        snprintf(spritefile, sizeof(spritefile), "data\\%s", currentsprites[sc].file);
                                         DisplaySprite(spritefile, currentsprites[sc].x, currentsprites[sc].y);
                                     }
                                 }
 
                                 /* Play music if needed */
                                 if (willplaying == 1) {
-                                    if (strncmp(musicfile, oldmusicfile, 18) != 0) {
+                                    if (strncmp(musicfile, oldmusicfile, sizeof(musicfile)) != 0) {
                                         if (isplaying) {
                                             StopMusic();
                                             isplaying = 0;
                                         }
-                                        memcpy(oldmusicfile, musicfile, 18);
+                                        memcpy(oldmusicfile, musicfile, sizeof(oldmusicfile));
                                         PlayMusic(musicfile);
                                         isplaying = 1;
                                     }
@@ -2193,13 +2189,12 @@ static void run(void) {
             if (*line == 'I') {
                 int filelen = (int)strlen(line) - 1;
                 if (filelen > 0) {
-                    if (filelen > 12) filelen = 12;
-                    memset(picture, 0, 18);
-                    snprintf(picture, 6, "data\\");
-                    memcpy(picture + 5, line + 1, filelen);
+                    if (filelen > 250) filelen = 250;
+                    memset(picture, 0, 260);
+                    snprintf(picture, sizeof(picture), "data\\%.*s", filelen, line + 1);
 
                     if (LoadBackgroundImage(picture, bgpalette, g_background) == 0) {
-                        memcpy(oldpicture, picture, 18);
+                        memcpy(oldpicture, picture, sizeof(oldpicture));
                         RestoreScreen();
                     }
                     reset_cursprites();
@@ -2257,12 +2252,11 @@ static void run(void) {
             if (*line == 'P') {
                 int filelen = (int)strlen(line) - 1;
                 if (filelen > 0) {
-                    if (filelen > 12) filelen = 12;
-                    memset(musicfile, 0, 18);
-                    snprintf(musicfile, 6, "data\\");
-                    memcpy(musicfile + 5, line + 1, filelen);
-                    if (strncmp(musicfile, oldmusicfile, 18) != 0) {
-                        memcpy(oldmusicfile, musicfile, 18);
+                    if (filelen > 250) filelen = 250;
+                    memset(musicfile, 0, sizeof(musicfile));
+                    snprintf(musicfile, sizeof(musicfile), "data\\%.*s", filelen, line + 1);
+                    if (strncmp(musicfile, oldmusicfile, sizeof(musicfile)) != 0) {
+                        memcpy(oldmusicfile, musicfile, sizeof(oldmusicfile));
                         g_effectrunning = 1;
                         if (isplaying) {
                             StopMusic();
@@ -2542,10 +2536,9 @@ static void run(void) {
             if (*line == 'A') {
                 if (strlen(line) >= 8 && spritecount < 256) {
                     int filelen = (int)strlen(line) - 7;
-                    if (filelen > 12) filelen = 12;
-                    memset(spritefile, 0, 18);
-                    snprintf(spritefile, 6, "data\\");
-                    memcpy(spritefile + 5, line + 7, filelen);
+                    if (filelen > 250) filelen = 250;
+                    memset(spritefile, 0, sizeof(spritefile));
+                    snprintf(spritefile, sizeof(spritefile), "data\\%.*s", filelen, line + 7);
                     memset(linex, 0, 4);
                     memset(liney, 0, 4);
                     memcpy(linex, line + 1, 3);
