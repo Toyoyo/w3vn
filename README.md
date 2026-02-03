@@ -165,6 +165,16 @@ Supported operands:
 
   Syntax: ``V[register number][Value]`` like ``V19`` meaning "Set value 9 on register 1"
 
+* 'M' : Play a video (movie)
+
+   Syntax: ``I[file]`` like ``IMOVIE.MPG``
+
+   Compatibility notes: Like 'P', this uses MCI to play the video, requiring the correct codecs to be installed.
+
+   For Windows 3.1/Win32s this mostly means outdated codecs les indeo/cinepak, but also mpeg1 via Compcore SoftPEG, available for example here: https://vetusware.com/download/CompCore%20SoftPEG%202.1/?id=14823 (Avoid the 2.2 version which is buggy), which should also work for Win9x though there might be better alternatives.
+
+   It's worth noting that at least Windows 10 natively includes an mpeg1 decoder, so this format should be the most compatible one.
+
 * 'X' : Trigger a visual effect.
 
   Syntax: ``X[XX]`` like ``X03``

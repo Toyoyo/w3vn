@@ -73,6 +73,9 @@ static UINT g_mciDeviceID = 0;
 static char g_currentMusic[260] = {0};
 #define MUSIC_TIMER_ID 1
 
+/* Video state - using MCI for AVI playback */
+static int g_videoPlaying = 0;
+
 /* Forward declaration */
 static void RestartMusic(void);
 static void CheckMusicStatus(void);
@@ -159,6 +162,61 @@ static void StopMusic(void) {
         g_mciDeviceID = 0;
         g_currentMusic[0] = '\0';
     }
+}
+
+/* Play a video file (AVI) in the image area */
+static void PlayVideo(const char *filename) {
+    char cmd[512];
+    RECT rect;
+    int video_h;
+
+    /* Stop any currently playing video */
+    if (g_videoPlaying) {
+        mciSendString("stop video", NULL, 0, NULL);
+        mciSendString("close video", NULL, 0, NULL);
+        g_videoPlaying = 0;
+    }
+
+    /* Open the video file */
+    snprintf(cmd, sizeof(cmd), "open \"%s\" alias video", filename);
+    if (mciSendString(cmd, NULL, 0, NULL) != 0) {
+        return;
+    }
+
+    /* Tell MCI to use our window for video display */
+    snprintf(cmd, sizeof(cmd), "window video handle %lu", (unsigned long)(uintptr_t)g_hwnd);
+    mciSendString(cmd, NULL, 0, NULL);
+
+    /* Set destination rectangle (image area) */
+    GetClientRect(g_hwnd, &rect);
+    video_h = (rect.bottom * TEXT_AREA_START) / SCREEN_HEIGHT;
+    snprintf(cmd, sizeof(cmd), "put video destination at 0 0 %d %d", (int)rect.right, video_h);
+    mciSendString(cmd, NULL, 0, NULL);
+
+    /* Start playback */
+    mciSendString("play video", NULL, 0, NULL);
+    g_videoPlaying = 1;
+
+    /* Restore focus to our window */
+    SetFocus(g_hwnd);
+}
+
+/* Stop currently playing video */
+static void StopVideo(void) {
+    /* Always try to stop/close, even if g_videoPlaying is 0 (state may be out of sync) */
+    mciSendString("stop video wait", NULL, 0, NULL);
+    mciSendString("close video wait", NULL, 0, NULL);
+    g_videoPlaying = 0;
+}
+
+/* Check if video is still playing */
+static int IsVideoPlaying(void) {
+    char status[64] = {0};
+    if (!g_videoPlaying) return 0;
+    if (mciSendString("status video mode", status, sizeof(status), NULL) == 0) {
+        if (strcmp(status, "playing") == 0) return 1;
+    }
+    return 0;
 }
 
 /* 8x15 VGA-style font covering ASCII 32-127 and CP1252 128-255 */
@@ -1702,8 +1760,22 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             break;
         }
 
+        case WM_SIZE:
+            /* Handle video resize */
+            if (g_videoPlaying) {
+                char rcmd[128];
+                RECT rrect;
+                int rvideo_h;
+                GetClientRect(g_hwnd, &rrect);
+                rvideo_h = (rrect.bottom * TEXT_AREA_START) / SCREEN_HEIGHT;
+                snprintf(rcmd, sizeof(rcmd), "put video destination at 0 0 %d %d", (int)rrect.right, rvideo_h);
+                mciSendString(rcmd, NULL, 0, NULL);
+            }
+            break;
+
         case WM_CLOSE:
             g_running = 0;
+            StopVideo();
             DestroyWindow(hwnd);
             break;
 
@@ -2205,6 +2277,48 @@ static void run(void) {
                 }
             }
 
+            /* 'M': Play video in image area */
+            if (*line == 'M') {
+                int filelen = (int)strlen(line) - 1;
+                if (filelen > 0) {
+                    char videofile[260];
+                    int stopvideo = 0;
+                    MSG vmsg;
+                    if (filelen > 250) filelen = 250;
+                    snprintf(videofile, sizeof(videofile), "data\\%.*s", filelen, line + 1);
+                    g_effectrunning = 1;
+                    RedrawBorder();
+                    update_display();
+                    PlayVideo(videofile);
+                    FlushMessages();
+                    g_lastkey = 0;
+
+                    /* Wait for video to finish or space to skip */
+                    while (IsVideoPlaying() && g_running && !stopvideo) {
+                        /* Process all messages, check for space key */
+                        if (PeekMessage(&vmsg, NULL, 0, 0, PM_REMOVE)) {
+                            if (vmsg.message == WM_QUIT) {
+                                g_running = 0;
+                            } else if (vmsg.message == WM_KEYDOWN && vmsg.wParam == VK_SPACE) {
+                                stopvideo = 1;
+                            } else if (vmsg.message == WM_KEYDOWN && vmsg.wParam == 'R') {
+                                RestoreWindowSize();
+                            } else {
+                                TranslateMessage(&vmsg);
+                                DispatchMessage(&vmsg);
+                            }
+                        } else {
+                            /* No messages - yield briefly */
+                            Sleep(1);
+                        }
+                    }
+
+                    StopVideo();
+                    g_effectrunning = 0;
+                    g_lastkey = 0;
+                }
+            }
+
             /* 'J': Jump to label */
             if (*line == 'J') {
                 if (strlen(line) >= 6) {
@@ -2454,6 +2568,7 @@ static void run(void) {
 
 endprog:
     StopMusic();
+    StopVideo();
     fclose(script);
     free(choicedata);
 }
