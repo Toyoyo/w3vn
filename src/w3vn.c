@@ -32,7 +32,7 @@ static volatile int g_lastkey = 0;
 static volatile int g_mouseclick = 0;
 static volatile int g_windowactive = 1;
 static volatile int g_ignoreclick = 0;
-static volatile int g_titlebarclick = 0;
+static volatile int g_ignorerclick = 0;
 static volatile int g_effectrunning = 0;
 
 /* Character rendering state */

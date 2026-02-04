@@ -1786,10 +1786,24 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             }
             break;
 
-        case WM_NCLBUTTONDOWN:
-            /* Track title bar click before activation */
-            if (wParam == HTCAPTION && !g_windowactive) {
-                g_titlebarclick = 1;
+        case WM_RBUTTONDOWN:
+            if (!g_effectrunning) {
+                if (g_ignorerclick) {
+                    g_ignorerclick = 0;  /* Ignore the click that activated the window */
+                } else if (g_windowactive) {
+                    g_lastkey = 5;  /* Same as 'B' key for rollback */
+                }
+            }
+            break;
+
+        case WM_MOUSEACTIVATE:
+            /* Set ignore flag only for the button that activated the window */
+            if (!g_windowactive && LOWORD(lParam) == HTCLIENT) {
+                if (HIWORD(lParam) == WM_LBUTTONDOWN) {
+                    g_ignoreclick = 1;
+                } else if (HIWORD(lParam) == WM_RBUTTONDOWN) {
+                    g_ignorerclick = 1;
+                }
             }
             return DefWindowProc(hwnd, msg, wParam, lParam);
 
@@ -1799,14 +1813,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             } else {
                 g_windowactive = 1;
                 SetFocus(hwnd);  /* Ensure keyboard focus on Win32s */
-                if (LOWORD(wParam) == WA_CLICKACTIVE) {
-                    /* Only ignore if activated via client area, not title bar */
-                    if (g_titlebarclick) {
-                        g_titlebarclick = 0;
-                    } else {
-                        g_ignoreclick = 1;
-                    }
-                }
             }
             break;
 
