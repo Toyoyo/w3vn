@@ -445,12 +445,19 @@ static void run(void) {
                                     }
 
                                     if (*line == 'P') {
-                                        int filelen = (int)strlen(line) - 1;
-                                        if (filelen > 0) {
-                                            if (filelen > 250) filelen = 250;
+                                        if (line[1] == 'S') {
+                                            /* PS: Stop music */
                                             memset(musicfile, 0, sizeof(musicfile));
-                                            snprintf(musicfile, sizeof(musicfile), "data\\%.*s", filelen, line + 1);
-                                            willplaying = 1;
+                                            memset(oldmusicfile, 0, sizeof(oldmusicfile));
+                                            willplaying = 0;
+                                        } else {
+                                            int filelen = (int)strlen(line) - 1;
+                                            if (filelen > 0) {
+                                                if (filelen > 250) filelen = 250;
+                                                memset(musicfile, 0, sizeof(musicfile));
+                                                snprintf(musicfile, sizeof(musicfile), "data\\%.*s", filelen, line + 1);
+                                                willplaying = 1;
+                                            }
                                         }
                                     }
 
@@ -526,7 +533,7 @@ static void run(void) {
                                     }
                                 }
 
-                                /* Play music if needed */
+                                /* Play or stop music if needed */
                                 if (willplaying == 1) {
                                     if (strncmp(musicfile, oldmusicfile, sizeof(musicfile)) != 0) {
                                         if (isplaying) {
@@ -537,6 +544,13 @@ static void run(void) {
                                         PlayMusic(musicfile);
                                         isplaying = 1;
                                     }
+                                } else {
+                                    if(isplaying == 1) {
+                                        StopMusic();
+                                        isplaying = 0;
+                                    }
+                                    memset(musicfile, 0, sizeof(musicfile));
+                                    memset(oldmusicfile, 0, sizeof(oldmusicfile));
                                 }
 
                                 backfromvideo = 0;
@@ -617,27 +631,37 @@ static void run(void) {
                 charlines++;
             }
 
-            /* 'P': Play music */
+            /* 'P': Play music, 'PS': Stop music */
             if (*line == 'P') {
-                int filelen = (int)strlen(line) - 1;
-                if (filelen > 0) {
-                    if (filelen > 250) filelen = 250;
+                if (line[1] == 'S') {
+                    /* PS: Stop music */
+                    if (isplaying) {
+                        StopMusic();
+                        isplaying = 0;
+                    }
                     memset(musicfile, 0, sizeof(musicfile));
-                    snprintf(musicfile, sizeof(musicfile), "data\\%.*s", filelen, line + 1);
-                    if (strncmp(musicfile, oldmusicfile, sizeof(musicfile)) != 0) {
-                        memcpy(oldmusicfile, musicfile, sizeof(oldmusicfile));
-                        g_effectrunning = 1;
-                        if (isplaying) {
-                            StopMusic();
-                            isplaying = 0;
+                    memset(oldmusicfile, 0, sizeof(oldmusicfile));
+                } else {
+                    int filelen = (int)strlen(line) - 1;
+                    if (filelen > 0) {
+                        if (filelen > 250) filelen = 250;
+                        memset(musicfile, 0, sizeof(musicfile));
+                        snprintf(musicfile, sizeof(musicfile), "data\\%.*s", filelen, line + 1);
+                        if (strncmp(musicfile, oldmusicfile, sizeof(musicfile)) != 0) {
+                            memcpy(oldmusicfile, musicfile, sizeof(oldmusicfile));
+                            g_effectrunning = 1;
+                            if (isplaying) {
+                                StopMusic();
+                                isplaying = 0;
+                            }
+                            PlayMusic(musicfile);
+                            isplaying = 1;
+                            FlushMessages();
+                            g_effectrunning = 0;
+                            g_lastkey = 0;
+                            g_ignoreclick = 0;
+                            g_ignorerclick = 0;
                         }
-                        PlayMusic(musicfile);
-                        isplaying = 1;
-                        FlushMessages();
-                        g_effectrunning = 0;
-                        g_lastkey = 0;
-                        g_ignoreclick = 0;
-                        g_ignorerclick = 0;
                     }
                 }
             }

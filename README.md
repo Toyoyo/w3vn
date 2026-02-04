@@ -98,6 +98,8 @@ Supported operands:
 
   ADPCM WAV provides some compression while being compatible with any windows version starting from Windows 3.1.
 
+* 'PS' : Stop music
+
 * 'J' : Jump to label
 
   Syntax: ``J[label]`` like `JLBL1```
