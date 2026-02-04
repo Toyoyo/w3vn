@@ -82,6 +82,16 @@ static int g_videoHeight = 0;
 static void RestartMusic(void);
 static void CheckMusicStatus(void);
 
+/* Forward declarations */
+static void locate(int x, int y);
+static void print_char(char c);
+static void print_string(const char *str);
+static void clear_screen(void);
+static void update_display(void);
+static int read_keyboard_status(void);
+static int file_exists(const char *pathname);
+static char *get_line(FILE *fp);
+
 /* Start playing a music file (WAV or MID) */
 static void PlayMusic(const char *filename) {
     MCI_OPEN_PARMS mciOpen;
@@ -193,14 +203,12 @@ static void PlayVideo(const char *filename) {
     mciSendString(cmd, NULL, 0, NULL);
 
     /* Fill image area with black for letterboxing */
-    {
-        int i;
-        int image_pixels = SCREEN_WIDTH * TEXT_AREA_START;
-        for (i = 0; i < image_pixels; i++) {
-            g_videoram[i] = COLOR_BLACK;
-        }
-        update_display();
+    int i;
+    int image_pixels = SCREEN_WIDTH * TEXT_AREA_START;
+    for (i = 0; i < image_pixels; i++) {
+        g_videoram[i] = COLOR_BLACK;
     }
+    update_display();
 
     /* Get video native dimensions */
     if (mciSendString("where video source", result, sizeof(result), NULL) == 0) {
@@ -502,16 +510,6 @@ static const uint8_t g_font8x15[224][15] = {
     {0x00,0x00,0xF0,0x60,0x60,0x7C,0x66,0x66,0x66,0x66,0x7C,0x60,0x60,0xF0,0x00}, /* 254 thorn */
     {0x00,0xCC,0x00,0x00,0x00,0xC6,0xC6,0xC6,0xC6,0xC6,0xC6,0x7E,0x06,0x0C,0xF8}, /* 255 y diar */
 };
-
-/* Forward declarations */
-static void locate(int x, int y);
-static void print_char(char c);
-static void print_string(const char *str);
-static void clear_screen(void);
-static void update_display(void);
-static int read_keyboard_status(void);
-static int file_exists(const char *pathname);
-static char *get_line(FILE *fp);
 
 /* Macros */
 #define IMAGE_AREA_PIXELS (SCREEN_WIDTH * TEXT_AREA_START)

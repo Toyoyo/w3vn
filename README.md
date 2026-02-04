@@ -169,13 +169,15 @@ Supported operands:
 
    Syntax: ``I[file]`` like ``IMOVIE.MPG``
 
+   You might want to load a black image beforehand (with 'I') for a better rollback rendering (there will be a slight delay between state restoration and video playback)
+
    Compatibility notes: Like 'P', this uses MCI to play the video, requiring the correct codecs to be installed.
 
    For Windows 3.1/Win32s this mostly means outdated codecs like indeo/cinepak, but also mpeg1 via Compcore SoftPEG, available for example here: https://vetusware.com/download/CompCore%20SoftPEG%202.1/?id=14823 (Avoid the 2.2 version which is buggy), which should also work for Win9x though there might be better alternatives.
 
-   It's worth noting that at least Windows 10 natively includes an mpeg1 decoder, so this format should be the most compatible one.
-
    A note about wine: on Debian, the mpeg1 codecs are in the gstreamer1.0-plugins-bad package, which need to be installed for the i386 architecture
+
+   It's worth noting that at least Windows 10 natively includes an mpeg1 decoder, so this format should be the most compatible one.
 
 * 'X' : Trigger a visual effect.
 
