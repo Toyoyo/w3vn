@@ -636,6 +636,8 @@ static void run(void) {
                         FlushMessages();
                         g_effectrunning = 0;
                         g_lastkey = 0;
+                        g_ignoreclick = 0;
+                        g_ignorerclick = 0;
                     }
                 }
             }
@@ -735,6 +737,8 @@ static void run(void) {
                     RestoreScreen();
                     g_effectrunning = 0;
                     g_lastkey = 0;
+                    g_ignoreclick = 0;
+                    g_ignorerclick = 0;
 
                     /* Handle rollback if 'B' was pressed during video */
                     if (rollbackvideo && savehistory_idx >= 2) {
@@ -967,6 +971,8 @@ static void run(void) {
                     FlushMessages();
                     g_effectrunning = 0;
                     g_lastkey = 0;  /* Clear any key pressed during effect */
+                    g_ignoreclick = 0;
+                    g_ignorerclick = 0;
                 }
             }
 
