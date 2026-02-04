@@ -47,6 +47,7 @@ static char g_currentMusic[260] = {0};
 static int g_videoPlaying = 0;
 static int g_videoWidth = 0;
 static int g_videoHeight = 0;
+static HWND g_videoWindow = NULL;
 
 #include "func.c"
 
@@ -60,21 +61,47 @@ static int g_videoHeight = 0;
 #define NoValidSaveChoice(n) ((n) != 2 && ((n) < 10 || (n) > 19))
 
 #define SaveMacro() {\
-    FILE *fd = fopen(savefile, "w");\
-    RestoreScreen();\
-    if (fd != NULL) {\
-        int _err = 0;\
-        _err |= fprintf(fd, "%06ld%d%d%d%d%d%d%d%d%d%d\n", savepointer,\
-            choicedata[0], choicedata[1], choicedata[2], choicedata[3], choicedata[4],\
-            choicedata[5], choicedata[6], choicedata[7], choicedata[8], choicedata[9]) < 0;\
-        _err |= fprintf(fd, "%d\n", savehistory_idx) < 0;\
-        for (int i = 0; i < savehistory_idx; i++) {\
-            _err |= fprintf(fd, "%d\n", savehistory[i]) < 0;\
+    next = read_keyboard_status();\
+    while (NoValidSaveChoice(next) && g_running) {\
+        if (next == 7) RestoreWindowSize();\
+        next = read_keyboard_status();\
+        Sleep(5);\
+    }\
+    if (next != 2) {\
+        HandleSaveFilename(next);\
+        FILE *fd = fopen(savefile, "w");\
+        RestoreScreen();\
+        if (fd != NULL) {\
+            int _err = 0;\
+            _err |= fprintf(fd, "%06ld%d%d%d%d%d%d%d%d%d%d\n", savepointer,\
+                choicedata[0], choicedata[1], choicedata[2], choicedata[3], choicedata[4],\
+                choicedata[5], choicedata[6], choicedata[7], choicedata[8], choicedata[9]) < 0;\
+            _err |= fprintf(fd, "%d\n", savehistory_idx) < 0;\
+            for (int i = 0; i < savehistory_idx; i++) {\
+                _err |= fprintf(fd, "%d\n", savehistory[i]) < 0;\
+            }\
+            _err |= fclose(fd) != 0;\
+            if (_err) DispSaveError();\
+        } else {\
+            DispSaveError();\
         }\
-        _err |= fclose(fd) != 0;\
-        if (_err) DispSaveError();\
-    } else {\
-        DispSaveError();\
+    }\
+}
+
+#define DeleteMacro() {\
+    next = read_keyboard_status();\
+    while (NoValidSaveChoice(next) && g_running) {\
+        if (next == 7) RestoreWindowSize();\
+        next = read_keyboard_status();\
+        Sleep(5);\
+    }\
+    if (next != 2) {\
+        HandleSaveFilename(next);\
+        if(file_exists(savefile) == 0) {\
+            if (remove(savefile) != 0) {\
+                DispEraseError();\
+            }\
+        }\
     }\
 }
 
@@ -128,21 +155,14 @@ static int g_videoHeight = 0;
     RestoreScreen();\
 }
 
-#define DeleteMacro() {\
+#define QuitMacro() {\
     next = read_keyboard_status();\
-    while (NoValidSaveChoice(next) && g_running) {\
+    while ((next != 10 && next != 11) && g_running) {\
         if (next == 7) RestoreWindowSize();\
         next = read_keyboard_status();\
         Sleep(5);\
     }\
-    if (next != 2) {\
-        HandleSaveFilename(next);\
-        if(file_exists(savefile) == 0) {\
-            if (remove(savefile) != 0) {\
-                DispEraseError();\
-            }\
-        }\
-    }\
+    if (next == 10) goto endprog;\
 }
 
 /* Main engine function */
@@ -256,24 +276,19 @@ static void run(void) {
                 g_mouseclick = 0;  /* Clear any pending click */
                 next = read_keyboard_status();
                 while (next != 1 && !g_mouseclick && g_running) {
-                    if (next == 2) goto endprog;
+                    if (next == 2) {
+                        SaveScreen();
+                        DispQuit();
+                        QuitMacro();
+                        RestoreScreen();
+                        update_display();
+                    }
 
                     /* Save */
                     if (next == 3) {
                         SaveScreen();
                         DispLoadSave(1);
-
-                        next = read_keyboard_status();
-                        while (NoValidSaveChoice(next) && g_running) {
-                            if (next == 7) RestoreWindowSize();
-                            next = read_keyboard_status();
-                            Sleep(5);
-                        }
-
-                        if (next != 2) {
-                            HandleSaveFilename(next);
-                            SaveMacro();
-                        }
+                        SaveMacro();
                         RestoreScreen();
                         update_display();
                     }
@@ -666,6 +681,46 @@ static void run(void) {
                                     stopvideo = 1;
                                     rollbackvideo = 1;
                                 }
+                            } else if (vmsg.message == WM_KEYDOWN && vmsg.wParam == 'Q') {
+                                char vcmd[128];
+                                RECT wrect, vwrect;
+                                int win_w, win_h;
+                                mciSendString("pause video", NULL, 0, NULL);
+                                /* Hide video child window */
+                                if (g_videoWindow) ShowWindow(g_videoWindow, SW_HIDE);
+                                g_effectrunning = 0;
+                                SaveScreen();
+                                DispQuit();
+                                /* Inline QuitMacro with dialog redraw on resize */
+                                GetClientRect(g_hwnd, &wrect);
+                                win_w = wrect.right;
+                                win_h = wrect.bottom;
+                                next = read_keyboard_status();
+                                while ((next != 10 && next != 11) && g_running) {
+                                    if (next == 7) RestoreWindowSize();
+                                    next = read_keyboard_status();
+                                    GetClientRect(g_hwnd, &wrect);
+                                    if (wrect.right != win_w || wrect.bottom != win_h) {
+                                        win_w = wrect.right;
+                                        win_h = wrect.bottom;
+                                        DispQuit();
+                                    }
+                                    Sleep(5);
+                                }
+                                if (next == 10) goto endprog;
+                                RestoreScreen();
+                                update_display();
+                                g_effectrunning = 1;
+                                /* Restore video child window position/size and show it */
+                                if (g_videoWindow) {
+                                    CalcVideoWindowRect(&vwrect, g_videoWidth, g_videoHeight);
+                                    SetWindowPos(g_videoWindow, NULL, vwrect.left, vwrect.top,
+                                                 vwrect.right, vwrect.bottom, SWP_NOZORDER);
+                                    snprintf(vcmd, sizeof(vcmd), "put video destination at 0 0 %d %d", vwrect.right, vwrect.bottom);
+                                    mciSendString(vcmd, NULL, 0, NULL);
+                                    ShowWindow(g_videoWindow, SW_SHOW);
+                                }
+                                mciSendString("resume video", NULL, 0, NULL);
                             } else {
                                 TranslateMessage(&vmsg);
                                 DispatchMessage(&vmsg);
@@ -769,25 +824,21 @@ static void run(void) {
                     next = read_keyboard_status();
                     while (!(next >= 10 && next <= (9 + maxchoice)) && g_running) {
                         next = read_keyboard_status();
-                        if (next == 2) goto endprog;
+                        if (next == 2) {
+                            SaveScreen();
+                            DispQuit();
+                            QuitMacro();
+                            next = 0;
+                            RestoreScreen();
+                            update_display();
+                        }
+
                         if (next == 7) RestoreWindowSize();
 
                         if (next == 3) {
                             SaveScreen();
                             DispLoadSave(1);
-
-                            int savnext = read_keyboard_status();
-                            while (NoValidSaveChoice(savnext) && g_running) {
-                                if (savnext == 7) RestoreWindowSize();
-                                savnext = read_keyboard_status();
-                                Sleep(5);
-                            }
-
-                            if (savnext != 2) {
-                                HandleSaveFilename(savnext);
-                                SaveMacro();
-                            }
-                            next = 0;
+                            SaveMacro();
                             RestoreScreen();
                             update_display();
                         }
@@ -973,6 +1024,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 0;
     }
 
+    /* Register video child window class with black background */
+    WNDCLASSEX vwc = {0};
+    vwc.cbSize = sizeof(WNDCLASSEX);
+    vwc.lpfnWndProc = DefWindowProc;
+    vwc.hInstance = hInstance;
+    vwc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    vwc.lpszClassName = "STVNVideoClass";
+    RegisterClassEx(&vwc);
+
     /* Calculate window size for 640x400 client area */
     RECT rect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
@@ -1039,6 +1099,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     if (g_hIcon) DestroyIcon(g_hIcon);
     UnregisterClass("STVNClass", hInstance);
+    UnregisterClass("STVNVideoClass", hInstance);
 
     return 0;
 }

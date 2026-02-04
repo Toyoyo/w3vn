@@ -109,13 +109,61 @@ static void StopMusic(void) {
 }
 
 /* Play a video file (AVI) in the image area */
+/* Calculate video window position/size matching update_display layout */
+static void CalcVideoWindowRect(RECT *out, int video_w, int video_h) {
+    RECT rect;
+    int content_w, content_x;
+    int text_h = SCREEN_HEIGHT - TEXT_AREA_START;
+    int image_h = TEXT_AREA_START;
+    int win_x, win_y, win_w, win_h;
+
+    GetClientRect(g_hwnd, &rect);
+
+    /* Calculate content area the same way update_display does */
+    if (SCREEN_WIDTH * rect.bottom > SCREEN_HEIGHT * rect.right) {
+        content_w = rect.right;
+    } else {
+        content_w = (SCREEN_WIDTH * rect.bottom) / SCREEN_HEIGHT;
+    }
+    content_x = (rect.right - content_w) / 2;
+
+    /* Calculate image area position */
+    int text_dest_h = (text_h * content_w) / SCREEN_WIDTH;
+    int text_dest_y = rect.bottom - text_dest_h;
+    int image_dest_h = (image_h * content_w) / SCREEN_WIDTH;
+    int available_h = text_dest_y;
+    int padding = available_h - image_dest_h;
+    int image_dest_y = padding / 2;
+
+    /* Calculate video position within image area */
+    if (video_w > 0 && video_h > 0) {
+        if (video_w * image_dest_h > video_h * content_w) {
+            win_w = content_w;
+            win_h = (video_h * content_w) / video_w;
+        } else {
+            win_h = image_dest_h;
+            win_w = (video_w * image_dest_h) / video_h;
+        }
+        win_x = content_x + (content_w - win_w) / 2;
+        win_y = image_dest_y + (image_dest_h - win_h) / 2;
+    } else {
+        win_x = content_x;
+        win_y = image_dest_y;
+        win_w = content_w;
+        win_h = image_dest_h;
+    }
+
+    out->left = win_x;
+    out->top = win_y;
+    out->right = win_w;
+    out->bottom = win_h;
+}
+
 static void PlayVideo(const char *filename) {
     char cmd[512];
     char result[128];
-    RECT rect;
-    int area_w, area_h;
     int video_w = 0, video_h = 0;
-    int dest_x, dest_y, dest_w, dest_h;
+    RECT vwrect;
 
     /* Stop any currently playing video */
     if (g_videoPlaying) {
@@ -123,16 +171,16 @@ static void PlayVideo(const char *filename) {
         mciSendString("close video", NULL, 0, NULL);
         g_videoPlaying = 0;
     }
+    if (g_videoWindow) {
+        DestroyWindow(g_videoWindow);
+        g_videoWindow = NULL;
+    }
 
     /* Open the video file */
     snprintf(cmd, sizeof(cmd), "open \"%s\" alias video", filename);
     if (mciSendString(cmd, NULL, 0, NULL) != 0) {
         return;
     }
-
-    /* Tell MCI to use our window for video display */
-    snprintf(cmd, sizeof(cmd), "window video handle %lu", (unsigned long)(uintptr_t)g_hwnd);
-    mciSendString(cmd, NULL, 0, NULL);
 
     /* Fill image area with black for letterboxing */
     int i;
@@ -151,42 +199,29 @@ static void PlayVideo(const char *filename) {
     g_videoWidth = video_w;
     g_videoHeight = video_h;
 
-    /* Calculate destination area (image portion of window) */
-    GetClientRect(g_hwnd, &rect);
-    area_w = rect.right;
-    area_h = (rect.bottom * TEXT_AREA_START) / SCREEN_HEIGHT;
+    /* Calculate child window position/size */
+    CalcVideoWindowRect(&vwrect, video_w, video_h);
 
-    /* Calculate aspect-ratio-preserving destination rectangle */
-    if (video_w > 0 && video_h > 0) {
-        /* Scale to fit while maintaining aspect ratio */
-        if (video_w * area_h > video_h * area_w) {
-            /* Video is wider than area - fit to width */
-            dest_w = area_w;
-            dest_h = (video_h * area_w) / video_w;
-        } else {
-            /* Video is taller than area - fit to height */
-            dest_h = area_h;
-            dest_w = (video_w * area_h) / video_h;
-        }
-        /* Center in area */
-        dest_x = (area_w - dest_w) / 2;
-        dest_y = (area_h - dest_h) / 2;
-    } else {
-        /* Fallback: stretch to fill */
-        dest_x = 0;
-        dest_y = 0;
-        dest_w = area_w;
-        dest_h = area_h;
-    }
+    /* Create child window for video (Wine workaround) */
+    g_videoWindow = CreateWindowEx(
+        0, "STVNVideoClass", NULL,
+        WS_CHILD | WS_VISIBLE,
+        vwrect.left, vwrect.top, vwrect.right, vwrect.bottom,
+        g_hwnd, NULL, GetModuleHandle(NULL), NULL);
 
-    snprintf(cmd, sizeof(cmd), "put video destination at %d %d %d %d", dest_x, dest_y, dest_w, dest_h);
+    /* Tell MCI to use the child window for video display */
+    snprintf(cmd, sizeof(cmd), "window video handle %lu", (unsigned long)(uintptr_t)g_videoWindow);
+    mciSendString(cmd, NULL, 0, NULL);
+
+    /* Video fills the entire child window */
+    snprintf(cmd, sizeof(cmd), "put video destination at 0 0 %d %d", vwrect.right, vwrect.bottom);
     mciSendString(cmd, NULL, 0, NULL);
 
     /* Start playback */
     mciSendString("play video", NULL, 0, NULL);
     g_videoPlaying = 1;
 
-    /* Restore focus to our window */
+    /* Restore focus to main window */
     SetFocus(g_hwnd);
 }
 
@@ -198,6 +233,11 @@ static void StopVideo(void) {
     g_videoPlaying = 0;
     g_videoWidth = 0;
     g_videoHeight = 0;
+    /* Destroy video child window */
+    if (g_videoWindow) {
+        DestroyWindow(g_videoWindow);
+        g_videoWindow = NULL;
+    }
 }
 
 /* Check if video is still playing */
@@ -671,16 +711,43 @@ static void update_display(void) {
 
     RECT rect;
     GetClientRect(g_hwnd, &rect);
-    int dst_w = rect.right;
-    int dst_h = rect.bottom;
+    int win_w = rect.right;
+    int win_h = rect.bottom;
 
-    if (dst_w <= 0 || dst_h <= 0) return;
+    if (win_w <= 0 || win_h <= 0) return;
+
+    int text_h = SCREEN_HEIGHT - TEXT_AREA_START;  /* 80 */
+    int image_h = TEXT_AREA_START;                  /* 320 */
+
+    /* Calculate width preserving aspect ratio */
+    int dest_x, dest_w;
+    if (SCREEN_WIDTH * win_h > SCREEN_HEIGHT * win_w) {
+        /* Window is taller - use full width */
+        dest_w = win_w;
+    } else {
+        /* Window is wider - width based on height */
+        dest_w = (SCREEN_WIDTH * win_h) / SCREEN_HEIGHT;
+    }
+    dest_x = (win_w - dest_w) / 2;
+
+    /* Textbox at bottom, scaled proportionally */
+    int text_scaled_h = (text_h * dest_w) / SCREEN_WIDTH;
+    int text_dest_y = win_h - text_scaled_h;
+
+    /* Image above textbox, with padding split top and middle */
+    int image_scaled_h = (image_h * dest_w) / SCREEN_WIDTH;
+    int available_h = text_dest_y;
+    int padding = available_h - image_scaled_h;
+    int image_dest_y = padding / 2;
+
+    int content_h = image_scaled_h + text_scaled_h;
+    if (dest_w <= 0 || content_h <= 0) return;
 
     /* Allocate scaled buffer */
-    uint32_t *scaled = (uint32_t *)malloc(dst_w * dst_h * sizeof(uint32_t));
+    uint32_t *scaled = (uint32_t *)malloc(dest_w * content_h * sizeof(uint32_t));
     if (!scaled) return;
 
-    /* Flip source for bottom-up DIB format, then scale with bicubic */
+    /* Flip source for bottom-up DIB format */
     uint32_t *flipped = (uint32_t *)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint32_t));
     if (!flipped) {
         free(scaled);
@@ -694,14 +761,14 @@ static void update_display(void) {
     }
 
     /* Apply hybrid scaling: bilinear for image, nearest-neighbor for text */
-    hybrid_scale(flipped, SCREEN_WIDTH, SCREEN_HEIGHT, scaled, dst_w, dst_h);
+    hybrid_scale(flipped, SCREEN_WIDTH, SCREEN_HEIGHT, scaled, dest_w, content_h);
 
     /* Use 32-bit DIB (BI_RGB) for Win32s compatibility */
     BITMAPINFOHEADER bmi;
     memset(&bmi, 0, sizeof(bmi));
     bmi.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.biWidth = dst_w;
-    bmi.biHeight = dst_h; /* Positive = bottom-up DIB */
+    bmi.biWidth = dest_w;
+    bmi.biHeight = content_h; /* Positive = bottom-up DIB */
     bmi.biPlanes = 1;
     bmi.biBitCount = 32;
     bmi.biCompression = BI_RGB;
@@ -709,10 +776,35 @@ static void update_display(void) {
 
     HDC hdc = GetDC(g_hwnd);
     if (hdc) {
-        /* No stretching needed - scaled buffer matches window size */
-        SetDIBitsToDevice(hdc, 0, 0, dst_w, dst_h,
-                          0, 0, 0, dst_h,
+        /* Fill black bars */
+        HBRUSH blackBrush = (HBRUSH)GetStockObject(BLACK_BRUSH);
+        RECT bar;
+        if (dest_x > 0) {
+            /* Left and right bars */
+            SetRect(&bar, 0, 0, dest_x, win_h);
+            FillRect(hdc, &bar, blackBrush);
+            SetRect(&bar, dest_x + dest_w, 0, win_w, win_h);
+            FillRect(hdc, &bar, blackBrush);
+        }
+        if (padding > 0) {
+            /* Top bar (above image) */
+            SetRect(&bar, dest_x, 0, dest_x + dest_w, image_dest_y);
+            FillRect(hdc, &bar, blackBrush);
+            /* Middle bar (between image and textbox) */
+            SetRect(&bar, dest_x, image_dest_y + image_scaled_h, dest_x + dest_w, text_dest_y);
+            FillRect(hdc, &bar, blackBrush);
+        }
+
+        /* Draw image (rows text_scaled_h to content_h-1 in scaled buffer) */
+        SetDIBitsToDevice(hdc, dest_x, image_dest_y, dest_w, image_scaled_h,
+                          0, text_scaled_h, 0, content_h,
                           scaled, (BITMAPINFO *)&bmi, DIB_RGB_COLORS);
+
+        /* Draw textbox (rows 0 to text_scaled_h-1 in scaled buffer) */
+        SetDIBitsToDevice(hdc, dest_x, text_dest_y, dest_w, text_scaled_h,
+                          0, 0, 0, content_h,
+                          scaled, (BITMAPINFO *)&bmi, DIB_RGB_COLORS);
+
         ReleaseDC(g_hwnd, hdc);
     }
 
@@ -759,10 +851,65 @@ static void update_display(void) {
     HDC hdc = GetDC(g_hwnd);
     if (hdc) {
         RECT rect;
+        int dest_x, dest_w;
+        int text_h, text_dest_h, text_dest_y;
+        int image_h, image_dest_h, image_dest_y;
+        int available_h, padding;
+
         GetClientRect(g_hwnd, &rect);
-        StretchDIBits(hdc, 0, 0, rect.right, rect.bottom,
-                      0, 0, SCREEN_WIDTH, SCREEN_HEIGHT,
+
+        text_h = SCREEN_HEIGHT - TEXT_AREA_START;  /* 80 */
+        image_h = TEXT_AREA_START;                  /* 320 */
+
+        /* Calculate width preserving aspect ratio */
+        if (SCREEN_WIDTH * rect.bottom > SCREEN_HEIGHT * rect.right) {
+            /* Window is taller - use full width */
+            dest_w = rect.right;
+        } else {
+            /* Window is wider - width based on height */
+            dest_w = (SCREEN_WIDTH * rect.bottom) / SCREEN_HEIGHT;
+        }
+        dest_x = (rect.right - dest_w) / 2;
+
+        /* Textbox at bottom, scaled proportionally */
+        text_dest_h = (text_h * dest_w) / SCREEN_WIDTH;
+        text_dest_y = rect.bottom - text_dest_h;
+
+        /* Image above textbox, with padding split top and middle */
+        image_dest_h = (image_h * dest_w) / SCREEN_WIDTH;
+        available_h = text_dest_y;
+        padding = available_h - image_dest_h;
+        image_dest_y = padding / 2;  /* Half padding at top, half between image and text */
+
+        /* Fill black bars */
+        HBRUSH blackBrush = (HBRUSH)GetStockObject(BLACK_BRUSH);
+        RECT bar;
+        if (dest_x > 0) {
+            /* Left and right bars */
+            SetRect(&bar, 0, 0, dest_x, rect.bottom);
+            FillRect(hdc, &bar, blackBrush);
+            SetRect(&bar, dest_x + dest_w, 0, rect.right, rect.bottom);
+            FillRect(hdc, &bar, blackBrush);
+        }
+        if (padding > 0) {
+            /* Top bar (above image) */
+            SetRect(&bar, dest_x, 0, dest_x + dest_w, image_dest_y);
+            FillRect(hdc, &bar, blackBrush);
+            /* Middle bar (between image and textbox) */
+            SetRect(&bar, dest_x, image_dest_y + image_dest_h, dest_x + dest_w, text_dest_y);
+            FillRect(hdc, &bar, blackBrush);
+        }
+
+        /* Draw image (top 320 rows of screen = rows 80-399 in flipped bottom-up DIB) */
+        StretchDIBits(hdc, dest_x, image_dest_y, dest_w, image_dest_h,
+                      0, text_h, SCREEN_WIDTH, image_h,
                       flipped, (BITMAPINFO *)&bmi, DIB_RGB_COLORS, SRCCOPY);
+
+        /* Draw textbox (bottom 80 rows of screen = rows 0-79 in flipped bottom-up DIB) */
+        StretchDIBits(hdc, dest_x, text_dest_y, dest_w, text_dest_h,
+                      0, 0, SCREEN_WIDTH, text_h,
+                      flipped, (BITMAPINFO *)&bmi, DIB_RGB_COLORS, SRCCOPY);
+
         ReleaseDC(g_hwnd, hdc);
     }
 
@@ -954,6 +1101,28 @@ static void DispHelp(void) {
     DrawHLine(250, 224, 389);
     DrawVLine(250, 96, 224);
     DrawVLine(389, 96, 224);
+
+    update_display();
+}
+
+static void DispQuit(void) {
+    /* Dialog 116x33 centered in 640x320 image area */
+    /* x: (640-116)/2 = 262, y: (320-33)/2 = 144 */
+    for (int y = 144; y <= 175; y++) {
+        for (int x = 262; x <= 377; x++) {
+            g_videoram[y * SCREEN_WIDTH + x] = COLOR_WHITE;
+        }
+    }
+
+    locate(264, 146);
+    print_string("-    Quit    -");
+    locate(264, 162);
+    print_string("[1] Yes [2] No");
+
+    DrawHLine(262, 144, 377);
+    DrawHLine(262, 176, 377);
+    DrawVLine(262, 144, 176);
+    DrawVLine(377, 144, 176);
 
     update_display();
 }
@@ -1649,36 +1818,15 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         case WM_SIZE:
-            /* Handle video resize with aspect ratio preservation */
-            if (g_videoPlaying) {
+            /* Handle video child window resize */
+            if (g_videoPlaying && g_videoWindow) {
                 char rcmd[128];
-                RECT rrect;
-                int area_w, area_h;
-                int dest_x, dest_y, dest_w, dest_h;
-
-                GetClientRect(g_hwnd, &rrect);
-                area_w = rrect.right;
-                area_h = (rrect.bottom * TEXT_AREA_START) / SCREEN_HEIGHT;
-
-                if (g_videoWidth > 0 && g_videoHeight > 0) {
-                    /* Scale to fit while maintaining aspect ratio */
-                    if (g_videoWidth * area_h > g_videoHeight * area_w) {
-                        dest_w = area_w;
-                        dest_h = (g_videoHeight * area_w) / g_videoWidth;
-                    } else {
-                        dest_h = area_h;
-                        dest_w = (g_videoWidth * area_h) / g_videoHeight;
-                    }
-                    dest_x = (area_w - dest_w) / 2;
-                    dest_y = (area_h - dest_h) / 2;
-                } else {
-                    dest_x = 0;
-                    dest_y = 0;
-                    dest_w = area_w;
-                    dest_h = area_h;
-                }
-
-                snprintf(rcmd, sizeof(rcmd), "put video destination at %d %d %d %d", dest_x, dest_y, dest_w, dest_h);
+                RECT vwrect;
+                CalcVideoWindowRect(&vwrect, g_videoWidth, g_videoHeight);
+                SetWindowPos(g_videoWindow, NULL, vwrect.left, vwrect.top,
+                             vwrect.right, vwrect.bottom, SWP_NOZORDER);
+                /* Update video destination to fill the resized child window */
+                snprintf(rcmd, sizeof(rcmd), "put video destination at 0 0 %d %d", vwrect.right, vwrect.bottom);
                 mciSendString(rcmd, NULL, 0, NULL);
             }
             break;
