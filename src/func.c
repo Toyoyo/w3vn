@@ -658,21 +658,15 @@ static void hybrid_scale(uint32_t *src, int src_w, int src_h,
     int h_border_margin = 2;  /* Margin for horizontal borders (top/bottom) */
     int v_border_width = 1;   /* Actual vertical border width (left/right) */
 
-    /* Destination Y boundaries */
-    int text_area_end = ((src_h - TEXT_AREA_START) * dst_h) / src_h;
-    int bot_border_end = ((h_border_margin + 1) * dst_h) / src_h;
-    int top_border_start = ((text_top_flipped - h_border_margin) * dst_h) / src_h;
-    int top_border_end = ((text_top_flipped + h_border_margin + 1) * dst_h) / src_h;
-    /* Clamp top border to not extend into image area */
-    if (top_border_end > text_area_end) top_border_end = text_area_end;
+    /* Destination X boundaries for left/right borders.
+       Use ceiling to ensure NN is only for pixels that actually sample from border,
+       not text content. ceil(a/b) = (a + b - 1) / b */
+    int left_end = (v_border_width * dst_w + src_w - 1) / src_w;
+    int right_start = ((src_w - v_border_width) * dst_w + src_w - 1) / src_w;
 
-    /* Destination X boundaries for left/right borders (narrow - just the border itself) */
-    int left_end = ((v_border_width + 1) * dst_w) / src_w;
-    int right_start = ((src_w - v_border_width) * dst_w) / src_w;
-
-    /* First and last text content rows (for per-pixel branching) */
-    int first_text_row = bot_border_end;
-    int last_text_row = top_border_start - 1;
+    /* Source row boundaries for text area (in flipped buffer) */
+    int src_bot_border_end = h_border_margin + 1;        /* First text row: 3 */
+    int src_top_border_start = text_top_flipped - h_border_margin; /* Last text row + 1: 77 */
 
     for (int y = 0; y < dst_h; y++) {
         uint32_t *out = dst + y * dst_w;
@@ -686,21 +680,28 @@ static void hybrid_scale(uint32_t *src, int src_w, int src_h,
         uint32_t *row0 = src + y0 * src_w;
         uint32_t *row1 = src + y1 * src_w;
 
-        if (y < bot_border_end || (y >= top_border_start && y < top_border_end)) {
-            /* Horizontal border rows: all nearest-neighbor */
+        /* Decide based on which source rows are actually being sampled */
+        int both_in_bot_border = (y0 < src_bot_border_end && y1 < src_bot_border_end);
+        int both_in_top_border = (y0 >= src_top_border_start && y1 >= src_top_border_start &&
+                                  y0 < src_h - TEXT_AREA_START && y1 < src_h - TEXT_AREA_START);
+        int both_in_text = (y0 >= src_bot_border_end && y1 < src_top_border_start);
+        int both_in_image = (y0 >= src_h - TEXT_AREA_START);
+
+        if (both_in_bot_border || both_in_top_border) {
+            /* Both source rows in border: all nearest-neighbor */
             nn_row(row_nn, out, 0, dst_w, x_ratio_nn);
-        } else if (y == first_text_row || y == last_text_row) {
-            /* First/last text rows: per-pixel branching */
-            hybrid_row(row_nn, row0, row1, out, dst_w, src_w,
-                       x_ratio_nn, x_ratio_bl, fy, left_end, right_start);
-        } else if (y < text_area_end) {
+        } else if (both_in_image) {
+            /* Image area: all bilinear */
+            bilinear_row(row0, row1, out, 0, dst_w, src_w, x_ratio_bl, fy);
+        } else if (both_in_text) {
             /* Text content rows: NN for left/right borders, bilinear for middle */
             nn_row(row_nn, out, 0, left_end, x_ratio_nn);
             bilinear_row(row0, row1, out, left_end, right_start, src_w, x_ratio_bl, fy);
             nn_row(row_nn, out, right_start, dst_w, x_ratio_nn);
         } else {
-            /* Image area: all bilinear */
-            bilinear_row(row0, row1, out, 0, dst_w, src_w, x_ratio_bl, fy);
+            /* Transition rows (straddling boundaries): per-pixel hybrid */
+            hybrid_row(row_nn, row0, row1, out, dst_w, src_w,
+                       x_ratio_nn, x_ratio_bl, fy, left_end, right_start);
         }
     }
 }
