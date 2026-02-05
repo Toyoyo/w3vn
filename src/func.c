@@ -32,6 +32,7 @@ static void CheckMusicStatus(void);
 #define IDC_HQ_CHECKBOX     104
 
 static HWND g_configDialog = NULL;
+static int g_wineVolume = -1;
 
 static void PlayMusic(const char *filename) {
     MCI_OPEN_PARMS mciOpen;
@@ -57,11 +58,19 @@ static void PlayMusic(const char *filename) {
         return;
     }
 
-    /* Open the audio file - let MCI auto-detect the type */
+    /* Open the audio file */
     memset(&mciOpen, 0, sizeof(mciOpen));
     mciOpen.lpstrElementName = fullpath;
+    mciOpen.lpstrAlias = "w3vn_music";
 
-    dwReturn = mciSendCommand(0, MCI_OPEN, MCI_OPEN_ELEMENT, (DWORD)(LPVOID)&mciOpen);
+    if (GetProcAddress(GetModuleHandle("ntdll.dll"), "wine_get_version") != NULL) {
+        /* Wine: force mpegvideo so setaudio volume works */
+        mciOpen.lpstrDeviceType = "mpegvideo";
+        dwReturn = mciSendCommand(0, MCI_OPEN, MCI_OPEN_ELEMENT | MCI_OPEN_ALIAS | MCI_OPEN_TYPE, (DWORD)(LPVOID)&mciOpen);
+    } else {
+        /* Windows: let MCI auto-detect the type */
+        dwReturn = mciSendCommand(0, MCI_OPEN, MCI_OPEN_ELEMENT | MCI_OPEN_ALIAS, (DWORD)(LPVOID)&mciOpen);
+    }
     if (dwReturn != 0) {
         return;
     }
@@ -74,6 +83,13 @@ static void PlayMusic(const char *filename) {
     memset(&mciPlay, 0, sizeof(mciPlay));
     mciPlay.dwCallback = (DWORD)g_hwnd;
     mciSendCommand(g_mciDeviceID, MCI_PLAY, MCI_NOTIFY, (DWORD)(LPVOID)&mciPlay);
+
+    /* Wine: apply cached volume to the newly opened MCI device */
+    if (g_wineVolume >= 0) {
+        char cmd[64];
+        snprintf(cmd, sizeof(cmd), "setaudio w3vn_music volume to %d", (g_wineVolume * 1000) / 100);
+        mciSendString(cmd, NULL, 0, NULL);
+    }
 
     /* Start timer to poll playback status (for Win32s compatibility) */
     SetTimer(g_hwnd, MUSIC_TIMER_ID, 500, NULL);
@@ -228,6 +244,13 @@ static void PlayVideo(const char *filename) {
     /* Start playback */
     mciSendString("play video", NULL, 0, NULL);
     g_videoPlaying = 1;
+
+    /* Wine: apply cached volume to video device */
+    if (g_wineVolume >= 0) {
+        char vcmd[64];
+        snprintf(vcmd, sizeof(vcmd), "setaudio video volume to %d", (g_wineVolume * 1000) / 100);
+        mciSendString(vcmd, NULL, 0, NULL);
+    }
 
     /* Restore focus to main window */
     SetFocus(g_hwnd);
@@ -1701,12 +1724,14 @@ static int DisplaySprite(const char *spritefile, int posx, int posy) {
     return DisplayTextSprite(spritefile, posx, posy);
 }
 
-/* Get master volume (0-100) */
 static int GetMasterVolume(void) {
     int pos = 100;
     DWORD ver = GetVersion();
-    /* Check if Windows 95+ (major >= 4) - mixer API available */
-    if ((LOBYTE(LOWORD(ver)) >= 4)) {
+    if (GetProcAddress(GetModuleHandle("ntdll.dll"), "wine_get_version") != NULL) {
+        /* Wine: return cached volume since waveOutGetVolume is unreliable */
+        return (g_wineVolume >= 0) ? g_wineVolume : 100;
+    } else if ((LOBYTE(LOWORD(ver)) >= 4)) {
+        /* Windows 95+: use mixer API */
         HMIXER hMixer;
         if (mixerOpen(&hMixer, 0, 0, 0, 0) == MMSYSERR_NOERROR) {
             MIXERLINE ml;
@@ -1767,7 +1792,20 @@ static int GetMasterVolume(void) {
 /* Set master volume (0-100) */
 static void SetMasterVolume(int pos) {
     DWORD ver = GetVersion();
-    if ((LOBYTE(LOWORD(ver)) >= 4)) {
+    if (GetProcAddress(GetModuleHandle("ntdll.dll"), "wine_get_version") != NULL) {
+        /* Wine: cache volume and apply to open MCI devices */
+        char cmd[64];
+        int vol = (pos * 1000) / 100;
+        g_wineVolume = pos;
+        if (g_mciDeviceID != 0) {
+            snprintf(cmd, sizeof(cmd), "setaudio w3vn_music volume to %d", vol);
+            mciSendString(cmd, NULL, 0, NULL);
+        }
+        if (g_videoPlaying) {
+            snprintf(cmd, sizeof(cmd), "setaudio video volume to %d", vol);
+            mciSendString(cmd, NULL, 0, NULL);
+        }
+    } else if ((LOBYTE(LOWORD(ver)) >= 4)) {
         /* Windows 95+: use mixer API */
         HMIXER hMixer;
         if (mixerOpen(&hMixer, 0, 0, 0, 0) == MMSYSERR_NOERROR) {
