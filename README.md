@@ -38,6 +38,12 @@ TSTVN Engine - Win32s
 
 'T' line is the window Title
 
+'V' line is the audio volume level (mostly set via the configuration dialog), if not present, volume is not restored on startup
+
+'D' line is the audio auxiliary device name (used on Win32s, ignored on Win95+), you probably won't want to change it, defaults to "volume", line is optional
+
+'R' line is wether we should save the original device sound volume on startup and restore it on quitting, useless on Windows Vista and up which use a per-application mixer, defaults to 0
+
 Defaults: ``STVN.VNS`` & ``STVN Engine - Win32s``
 
 ## Supported formats / limitations:

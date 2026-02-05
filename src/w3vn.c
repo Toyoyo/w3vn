@@ -34,6 +34,9 @@ static volatile int g_windowactive = 1;
 static volatile int g_ignoreclick = 0;
 static volatile int g_ignorerclick = 0;
 static volatile int g_effectrunning = 0;
+static volatile int g_hq2x = 0;
+static char g_volumedevice[128] = "volume";
+static int g_origvolume = 100;
 
 /* Character rendering state */
 static int g_cursorX = 0;
@@ -204,6 +207,8 @@ static void run(void) {
     int spritecount = 0;
     char scriptfile[260] = "data\\stvn.vns";
 
+    int restorevolume=0;
+
     choicedata = (char *)malloc(11);
     if (choicedata == NULL) return;
     memset(choicedata, 0, 11);
@@ -215,6 +220,7 @@ static void run(void) {
         config = fopen("stvn.ini", "r");
         line = get_line(config);
 
+        int vol=200;
         while (line) {
             if (strlen(line) > 0) {
                 if (*line == 'S') {
@@ -228,10 +234,29 @@ static void run(void) {
                     g_windowTitle[sizeof(g_windowTitle) - 1] = '\0';
                     SetWindowTextA(g_hwnd, g_windowTitle);
                 }
+                if (*line == 'H') {
+                    if (strlen(line) > 1 && line[1] == '1') g_hq2x = 1;
+                }
+                if (*line == 'R') {
+                    if (strlen(line) > 1 && line[1] == '1') restorevolume=1;
+                }
+                if (*line == 'V') {
+                    if (strlen(line) >= 4) {
+                        vol = atoi(line + 1);
+                    }
+                }
+                if (*line == 'D') {
+                    strncpy(g_volumedevice, line + 1, sizeof(g_volumedevice) - 1);
+                    g_volumedevice[sizeof(g_volumedevice) - 1] = '\0';
+                }
             }
             line = get_line(config);
         }
         fclose(config);
+
+        /*Restore volume if it was set in the config file */
+        if(restorevolume) g_origvolume = GetMasterVolume();
+        if (vol >= 0 && vol <= 100) SetMasterVolume(vol);
     } else {
         locate(0, 0);
         print_string("STVN.INI not found, using defaults:");
@@ -245,6 +270,8 @@ static void run(void) {
             Sleep(5);
         }
     }
+
+    RestoreWindowSize();
 
     script = fopen(scriptfile, "r");
     if (script == NULL) {
@@ -697,17 +724,17 @@ static void run(void) {
                         if (PeekMessage(&vmsg, NULL, 0, 0, PM_REMOVE)) {
                             if (vmsg.message == WM_QUIT) {
                                 g_running = 0;
-                            } else if (vmsg.message == WM_KEYDOWN && vmsg.wParam == VK_SPACE) {
+                            } else if (vmsg.message == WM_KEYDOWN && !g_configDialog && vmsg.wParam == VK_SPACE) {
                                 stopvideo = 1;
-                            } else if (vmsg.message == WM_KEYDOWN && vmsg.wParam == 'R') {
+                            } else if (vmsg.message == WM_KEYDOWN && !g_configDialog && vmsg.wParam == 'R') {
                                 RestoreWindowSize();
-                            } else if (vmsg.message == WM_KEYDOWN && vmsg.wParam == 'B') {
+                            } else if (vmsg.message == WM_KEYDOWN && !g_configDialog && vmsg.wParam == 'B') {
                                 /* Only stop video for rollback if rollback is possible */
                                 if (savehistory_idx >= 2) {
                                     stopvideo = 1;
                                     rollbackvideo = 1;
                                 }
-                            } else if (vmsg.message == WM_KEYDOWN && vmsg.wParam == 'Q') {
+                            } else if (vmsg.message == WM_KEYDOWN && !g_configDialog && vmsg.wParam == 'Q') {
                                 char vcmd[128];
                                 RECT wrect, vwrect;
                                 int win_w, win_h;
@@ -1032,6 +1059,12 @@ endprog:
     StopVideo();
     fclose(script);
     free(choicedata);
+
+    /* Save volume, in case it was changed externally */
+    char volstr[4];
+    snprintf(volstr, sizeof(volstr), "%03d", GetMasterVolume());
+    UpdateIniLine('V', volstr);
+    if(restorevolume) SetMasterVolume(g_origvolume);
 }
 
 /* WinMain entry point */
@@ -1081,11 +1114,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         MessageBox(NULL, "Window Creation Failed!", "Error", MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
-
-/* if SCALED_RENDERING is defined, we will resize the window when starting */
-#ifdef SCALED_RENDERING
-    RestoreWindowSize();
-#endif
 
     /* Allocate framebuffers (32-bit BGRA) */
     g_videoram = (uint32_t *)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint32_t));

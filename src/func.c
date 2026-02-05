@@ -25,6 +25,14 @@ static void update_display(void);
 static void RestartMusic(void);
 static void CheckMusicStatus(void);
 
+/* Configuration dialog control IDs */
+#define IDC_VOLUME_LABEL    101
+#define IDC_VOLUME_SLIDER   102
+#define IDC_HQ_LABEL        103
+#define IDC_HQ_CHECKBOX     104
+
+static HWND g_configDialog = NULL;
+
 static void PlayMusic(const char *filename) {
     MCI_OPEN_PARMS mciOpen;
     MCI_PLAY_PARMS mciPlay;
@@ -577,10 +585,9 @@ static void clear_screen(void) {
     g_cursorY = 0;
 }
 
-/* SCALED_RENDERING -> Scale rendering to 1280x800 (upscale x2) with hybrid filtering:
-   bilinear for image section and text section
-   nearest-neighbor for the text area border */
-#ifdef SCALED_RENDERING
+/* HQ2x scaling functions: hybrid filtering with bilinear for image/text content
+   and nearest-neighbor for the text area border */
+
 /* Nearest-neighbor scale a row */
 static void nn_row(uint32_t *src_row, uint32_t *dst_row, int dst_start, int dst_end,
                    uint32_t x_ratio) {
@@ -741,105 +748,7 @@ static void update_display(void) {
     int padding = available_h - image_scaled_h;
     int image_dest_y = padding / 2;
 
-    int content_h = image_scaled_h + text_scaled_h;
-    if (dest_w <= 0 || content_h <= 0) return;
-
-    /* Allocate scaled buffer */
-    uint32_t *scaled = (uint32_t *)malloc(dest_w * content_h * sizeof(uint32_t));
-    if (!scaled) return;
-
     /* Flip source for bottom-up DIB format */
-    uint32_t *flipped = (uint32_t *)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint32_t));
-    if (!flipped) {
-        free(scaled);
-        return;
-    }
-
-    for (int y = 0; y < SCREEN_HEIGHT; y++) {
-        memcpy(flipped + y * SCREEN_WIDTH,
-               g_videoram + (SCREEN_HEIGHT - 1 - y) * SCREEN_WIDTH,
-               SCREEN_WIDTH * sizeof(uint32_t));
-    }
-
-    /* Apply hybrid scaling: bilinear for image, nearest-neighbor for text */
-    hybrid_scale(flipped, SCREEN_WIDTH, SCREEN_HEIGHT, scaled, dest_w, content_h);
-
-    /* Use 32-bit DIB (BI_RGB) for Win32s compatibility */
-    BITMAPINFOHEADER bmi;
-    memset(&bmi, 0, sizeof(bmi));
-    bmi.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.biWidth = dest_w;
-    bmi.biHeight = content_h; /* Positive = bottom-up DIB */
-    bmi.biPlanes = 1;
-    bmi.biBitCount = 32;
-    bmi.biCompression = BI_RGB;
-    bmi.biSizeImage = 0;
-
-    HDC hdc = GetDC(g_hwnd);
-    if (hdc) {
-        /* Fill black bars */
-        HBRUSH blackBrush = (HBRUSH)GetStockObject(BLACK_BRUSH);
-        RECT bar;
-        if (dest_x > 0) {
-            /* Left and right bars */
-            SetRect(&bar, 0, 0, dest_x, win_h);
-            FillRect(hdc, &bar, blackBrush);
-            SetRect(&bar, dest_x + dest_w, 0, win_w, win_h);
-            FillRect(hdc, &bar, blackBrush);
-        }
-        if (padding > 0) {
-            /* Top bar (above image) */
-            SetRect(&bar, dest_x, 0, dest_x + dest_w, image_dest_y);
-            FillRect(hdc, &bar, blackBrush);
-            /* Middle bar (between image and textbox) */
-            SetRect(&bar, dest_x, image_dest_y + image_scaled_h, dest_x + dest_w, text_dest_y);
-            FillRect(hdc, &bar, blackBrush);
-        }
-
-        /* Draw image (rows text_scaled_h to content_h-1 in scaled buffer) */
-        SetDIBitsToDevice(hdc, dest_x, image_dest_y, dest_w, image_scaled_h,
-                          0, text_scaled_h, 0, content_h,
-                          scaled, (BITMAPINFO *)&bmi, DIB_RGB_COLORS);
-
-        /* Draw textbox (rows 0 to text_scaled_h-1 in scaled buffer) */
-        SetDIBitsToDevice(hdc, dest_x, text_dest_y, dest_w, text_scaled_h,
-                          0, 0, 0, content_h,
-                          scaled, (BITMAPINFO *)&bmi, DIB_RGB_COLORS);
-
-        ReleaseDC(g_hwnd, hdc);
-    }
-
-    free(flipped);
-    free(scaled);
-}
-
-/* Restore window to 1280x800 size */
-static void RestoreWindowSize(void) {
-    RECT rect = {0, 0, 1280, 800};
-    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
-    SetWindowPos(g_hwnd, NULL, 0, 0, rect.right - rect.left, rect.bottom - rect.top,
-                 SWP_NOMOVE | SWP_NOZORDER);
-}
-
-/* Default to non-scaled rendering: 640x400 screen with nearest-neighbor interpolation when resizing the window */
-#else
-/* Update the Windows display from our framebuffer */
-static void update_display(void) {
-    if (!g_hwnd || !g_videoram) return;
-
-    /* Use 32-bit DIB (BI_RGB) for Win32s compatibility */
-    BITMAPINFOHEADER bmi;
-
-    memset(&bmi, 0, sizeof(bmi));
-    bmi.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.biWidth = SCREEN_WIDTH;
-    bmi.biHeight = SCREEN_HEIGHT; /* Positive = bottom-up DIB */
-    bmi.biPlanes = 1;
-    bmi.biBitCount = 32;  /* 32-bit color */
-    bmi.biCompression = BI_RGB;
-    bmi.biSizeImage = 0;  /* Can be 0 for BI_RGB */
-
-    /* Flip rows for bottom-up DIB format */
     uint32_t *flipped = (uint32_t *)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint32_t));
     if (!flipped) return;
 
@@ -849,82 +758,122 @@ static void update_display(void) {
                SCREEN_WIDTH * sizeof(uint32_t));
     }
 
-    HDC hdc = GetDC(g_hwnd);
-    if (hdc) {
-        RECT rect;
-        int dest_x, dest_w;
-        int text_h, text_dest_h, text_dest_y;
-        int image_h, image_dest_h, image_dest_y;
-        int available_h, padding;
-
-        GetClientRect(g_hwnd, &rect);
-
-        text_h = SCREEN_HEIGHT - TEXT_AREA_START;  /* 80 */
-        image_h = TEXT_AREA_START;                  /* 320 */
-
-        /* Calculate width preserving aspect ratio */
-        if (SCREEN_WIDTH * rect.bottom > SCREEN_HEIGHT * rect.right) {
-            /* Window is taller - use full width */
-            dest_w = rect.right;
-        } else {
-            /* Window is wider - width based on height */
-            dest_w = (SCREEN_WIDTH * rect.bottom) / SCREEN_HEIGHT;
-        }
-        dest_x = (rect.right - dest_w) / 2;
-
-        /* Textbox at bottom, scaled proportionally */
-        text_dest_h = (text_h * dest_w) / SCREEN_WIDTH;
-        text_dest_y = rect.bottom - text_dest_h;
-
-        /* Image above textbox, with padding split top and middle */
-        image_dest_h = (image_h * dest_w) / SCREEN_WIDTH;
-        available_h = text_dest_y;
-        padding = available_h - image_dest_h;
-        image_dest_y = padding / 2;  /* Half padding at top, half between image and text */
-
-        /* Fill black bars */
-        HBRUSH blackBrush = (HBRUSH)GetStockObject(BLACK_BRUSH);
-        RECT bar;
-        if (dest_x > 0) {
-            /* Left and right bars */
-            SetRect(&bar, 0, 0, dest_x, rect.bottom);
-            FillRect(hdc, &bar, blackBrush);
-            SetRect(&bar, dest_x + dest_w, 0, rect.right, rect.bottom);
-            FillRect(hdc, &bar, blackBrush);
-        }
-        if (padding > 0) {
-            /* Top bar (above image) */
-            SetRect(&bar, dest_x, 0, dest_x + dest_w, image_dest_y);
-            FillRect(hdc, &bar, blackBrush);
-            /* Middle bar (between image and textbox) */
-            SetRect(&bar, dest_x, image_dest_y + image_dest_h, dest_x + dest_w, text_dest_y);
-            FillRect(hdc, &bar, blackBrush);
+    if (g_hq2x) {
+        /* HQ2x: hybrid scaling with bilinear for image, nearest-neighbor for text borders */
+        int content_h = image_scaled_h + text_scaled_h;
+        if (dest_w <= 0 || content_h <= 0) {
+            free(flipped);
+            return;
         }
 
-        /* Draw image (top 320 rows of screen = rows 80-399 in flipped bottom-up DIB) */
-        StretchDIBits(hdc, dest_x, image_dest_y, dest_w, image_dest_h,
-                      0, text_h, SCREEN_WIDTH, image_h,
-                      flipped, (BITMAPINFO *)&bmi, DIB_RGB_COLORS, SRCCOPY);
+        uint32_t *scaled = (uint32_t *)malloc(dest_w * content_h * sizeof(uint32_t));
+        if (!scaled) {
+            free(flipped);
+            return;
+        }
 
-        /* Draw textbox (bottom 80 rows of screen = rows 0-79 in flipped bottom-up DIB) */
-        StretchDIBits(hdc, dest_x, text_dest_y, dest_w, text_dest_h,
-                      0, 0, SCREEN_WIDTH, text_h,
-                      flipped, (BITMAPINFO *)&bmi, DIB_RGB_COLORS, SRCCOPY);
+        hybrid_scale(flipped, SCREEN_WIDTH, SCREEN_HEIGHT, scaled, dest_w, content_h);
 
-        ReleaseDC(g_hwnd, hdc);
+        BITMAPINFOHEADER bmi;
+        memset(&bmi, 0, sizeof(bmi));
+        bmi.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.biWidth = dest_w;
+        bmi.biHeight = content_h;
+        bmi.biPlanes = 1;
+        bmi.biBitCount = 32;
+        bmi.biCompression = BI_RGB;
+        bmi.biSizeImage = 0;
+
+        HDC hdc = GetDC(g_hwnd);
+        if (hdc) {
+            HBRUSH blackBrush = (HBRUSH)GetStockObject(BLACK_BRUSH);
+            RECT bar;
+            if (dest_x > 0) {
+                SetRect(&bar, 0, 0, dest_x, win_h);
+                FillRect(hdc, &bar, blackBrush);
+                SetRect(&bar, dest_x + dest_w, 0, win_w, win_h);
+                FillRect(hdc, &bar, blackBrush);
+            }
+            if (padding > 0) {
+                SetRect(&bar, dest_x, 0, dest_x + dest_w, image_dest_y);
+                FillRect(hdc, &bar, blackBrush);
+                SetRect(&bar, dest_x, image_dest_y + image_scaled_h, dest_x + dest_w, text_dest_y);
+                FillRect(hdc, &bar, blackBrush);
+            }
+
+            SetDIBitsToDevice(hdc, dest_x, image_dest_y, dest_w, image_scaled_h,
+                              0, text_scaled_h, 0, content_h,
+                              scaled, (BITMAPINFO *)&bmi, DIB_RGB_COLORS);
+            SetDIBitsToDevice(hdc, dest_x, text_dest_y, dest_w, text_scaled_h,
+                              0, 0, 0, content_h,
+                              scaled, (BITMAPINFO *)&bmi, DIB_RGB_COLORS);
+
+            ReleaseDC(g_hwnd, hdc);
+        }
+
+        free(scaled);
+    } else {
+        /* Standard rendering: nearest-neighbor via StretchDIBits */
+        BITMAPINFOHEADER bmi;
+        memset(&bmi, 0, sizeof(bmi));
+        bmi.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.biWidth = SCREEN_WIDTH;
+        bmi.biHeight = SCREEN_HEIGHT;
+        bmi.biPlanes = 1;
+        bmi.biBitCount = 32;
+        bmi.biCompression = BI_RGB;
+        bmi.biSizeImage = 0;
+
+        HDC hdc = GetDC(g_hwnd);
+        if (hdc) {
+            HBRUSH blackBrush = (HBRUSH)GetStockObject(BLACK_BRUSH);
+            RECT bar;
+            if (dest_x > 0) {
+                SetRect(&bar, 0, 0, dest_x, win_h);
+                FillRect(hdc, &bar, blackBrush);
+                SetRect(&bar, dest_x + dest_w, 0, win_w, win_h);
+                FillRect(hdc, &bar, blackBrush);
+            }
+            if (padding > 0) {
+                SetRect(&bar, dest_x, 0, dest_x + dest_w, image_dest_y);
+                FillRect(hdc, &bar, blackBrush);
+                SetRect(&bar, dest_x, image_dest_y + image_scaled_h, dest_x + dest_w, text_dest_y);
+                FillRect(hdc, &bar, blackBrush);
+            }
+
+            StretchDIBits(hdc, dest_x, image_dest_y, dest_w, image_scaled_h,
+                          0, text_h, SCREEN_WIDTH, image_h,
+                          flipped, (BITMAPINFO *)&bmi, DIB_RGB_COLORS, SRCCOPY);
+            StretchDIBits(hdc, dest_x, text_dest_y, dest_w, text_scaled_h,
+                          0, 0, SCREEN_WIDTH, text_h,
+                          flipped, (BITMAPINFO *)&bmi, DIB_RGB_COLORS, SRCCOPY);
+
+            ReleaseDC(g_hwnd, hdc);
+        }
     }
 
     free(flipped);
 }
 
-/* Restore window to original 640x400 size */
+/* Restore window size (1280x800 if HQ2x enabled, 640x400 otherwise) */
 static void RestoreWindowSize(void) {
-    RECT rect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+    RECT rect;
+    if (g_hq2x) {
+        rect.left = 0; rect.top = 0;
+        rect.right = 1280; rect.bottom = 800;
+    } else {
+        rect.left = 0; rect.top = 0;
+        rect.right = SCREEN_WIDTH; rect.bottom = SCREEN_HEIGHT;
+    }
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
     SetWindowPos(g_hwnd, NULL, 0, 0, rect.right - rect.left, rect.bottom - rect.top,
                  SWP_NOMOVE | SWP_NOZORDER);
+
+    /* Bring config dialog back on top if it exists (Wine workaround) */
+    if (g_configDialog) {
+        SetWindowPos(g_configDialog, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    }
 }
-#endif
 
 /* Check if a file exists */
 static int file_exists(const char *pathname) {
@@ -1074,34 +1023,36 @@ static void DispLoadSave(int mode) {
 
 /* Display help dialog */
 static void DispHelp(void) {
-    /* Fill dialog area with white - 140x129 centered in 640x320 */
-    for (int y = 96; y <= 224; y++) {
+    /* Fill dialog area with white - 140x145 centered in 640x320 */
+    for (int y = 88; y <= 232; y++) {
         for (int x = 250; x <= 389; x++) {
             g_videoram[y * SCREEN_WIDTH + x] = COLOR_WHITE;
         }
     }
 
-    locate(252, 96);
+    locate(252, 88);
     print_string("-     Usage     -");
-    locate(252, 112);
+    locate(252, 104);
     print_string("[q] Quit         ");
-    locate(252, 128);
+    locate(252, 120);
     print_string("[b] Back         ");
-    locate(252, 144);
+    locate(252, 136);
     print_string("[l] Load save    ");
-    locate(252, 160);
+    locate(252, 152);
     print_string("[s] Save state   ");
-    locate(252, 176);
+    locate(252, 168);
     print_string("[e] Erase save   ");
-    locate(252, 192);
+    locate(252, 184);
     print_string("[r] Restore size ");
-    locate(252, 208);
+    locate(252, 200);
+    print_string("[c] Config       ");
+    locate(252, 216);
     print_string("[ ] Advance      ");
 
-    DrawHLine(250, 96, 389);
-    DrawHLine(250, 224, 389);
-    DrawVLine(250, 96, 224);
-    DrawVLine(389, 96, 224);
+    DrawHLine(250, 88, 389);
+    DrawHLine(250, 232, 389);
+    DrawVLine(250, 88, 232);
+    DrawVLine(389, 88, 232);
 
     update_display();
 }
@@ -1750,11 +1701,368 @@ static int DisplaySprite(const char *spritefile, int posx, int posy) {
     return DisplayTextSprite(spritefile, posx, posy);
 }
 
+/* Get master volume (0-100) */
+static int GetMasterVolume(void) {
+    int pos = 100;
+    DWORD ver = GetVersion();
+    /* Check if Windows 95+ (major >= 4) - mixer API available */
+    if ((LOBYTE(LOWORD(ver)) >= 4)) {
+        HMIXER hMixer;
+        if (mixerOpen(&hMixer, 0, 0, 0, 0) == MMSYSERR_NOERROR) {
+            MIXERLINE ml;
+            memset(&ml, 0, sizeof(ml));
+            ml.cbStruct = sizeof(ml);
+            ml.dwComponentType = MIXERLINE_COMPONENTTYPE_DST_SPEAKERS;
+            if (mixerGetLineInfo((HMIXEROBJ)hMixer, &ml, MIXER_GETLINEINFOF_COMPONENTTYPE) == MMSYSERR_NOERROR) {
+                MIXERLINECONTROLS mlc;
+                MIXERCONTROL mc;
+                memset(&mlc, 0, sizeof(mlc));
+                memset(&mc, 0, sizeof(mc));
+                mlc.cbStruct = sizeof(mlc);
+                mlc.dwLineID = ml.dwLineID;
+                mlc.dwControlType = MIXERCONTROL_CONTROLTYPE_VOLUME;
+                mlc.cControls = 1;
+                mlc.cbmxctrl = sizeof(mc);
+                mlc.pamxctrl = &mc;
+                if (mixerGetLineControls((HMIXEROBJ)hMixer, &mlc, MIXER_GETLINECONTROLSF_ONEBYTYPE) == MMSYSERR_NOERROR) {
+                    MIXERCONTROLDETAILS mcd;
+                    MIXERCONTROLDETAILS_UNSIGNED mcdu;
+                    memset(&mcd, 0, sizeof(mcd));
+                    mcd.cbStruct = sizeof(mcd);
+                    mcd.dwControlID = mc.dwControlID;
+                    mcd.cChannels = 1;
+                    mcd.cbDetails = sizeof(mcdu);
+                    mcd.paDetails = &mcdu;
+                    if (mixerGetControlDetails((HMIXEROBJ)hMixer, &mcd, MIXER_GETCONTROLDETAILSF_VALUE) == MMSYSERR_NOERROR) {
+                        pos = (mcdu.dwValue * 100) / mc.Bounds.dwMaximum;
+                    }
+                }
+            }
+            mixerClose(hMixer);
+        }
+    } else {
+        /* Win32s: find aux device with "volume" in name */
+        UINT numDevs = auxGetNumDevs();
+        UINT i;
+        for (i = 0; i < numDevs; i++) {
+            AUXCAPS caps;
+            if (auxGetDevCaps(i, &caps, sizeof(caps)) == MMSYSERR_NOERROR) {
+                char nameLower[MAXPNAMELEN];
+                strncpy(nameLower, caps.szPname, MAXPNAMELEN - 1);
+                nameLower[MAXPNAMELEN - 1] = '\0';
+                CharLowerA(nameLower);
+                if (strstr(nameLower, g_volumedevice) != NULL) {
+                    DWORD vol;
+                    if (auxGetVolume(i, &vol) == MMSYSERR_NOERROR) {
+                        pos = (LOWORD(vol) * 100) / 0xFFFF;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    return pos;
+}
+
+/* Set master volume (0-100) */
+static void SetMasterVolume(int pos) {
+    DWORD ver = GetVersion();
+    if ((LOBYTE(LOWORD(ver)) >= 4)) {
+        /* Windows 95+: use mixer API */
+        HMIXER hMixer;
+        if (mixerOpen(&hMixer, 0, 0, 0, 0) == MMSYSERR_NOERROR) {
+            MIXERLINE ml;
+            memset(&ml, 0, sizeof(ml));
+            ml.cbStruct = sizeof(ml);
+            ml.dwComponentType = MIXERLINE_COMPONENTTYPE_DST_SPEAKERS;
+            if (mixerGetLineInfo((HMIXEROBJ)hMixer, &ml, MIXER_GETLINEINFOF_COMPONENTTYPE) == MMSYSERR_NOERROR) {
+                MIXERLINECONTROLS mlc;
+                MIXERCONTROL mc;
+                memset(&mlc, 0, sizeof(mlc));
+                memset(&mc, 0, sizeof(mc));
+                mlc.cbStruct = sizeof(mlc);
+                mlc.dwLineID = ml.dwLineID;
+                mlc.dwControlType = MIXERCONTROL_CONTROLTYPE_VOLUME;
+                mlc.cControls = 1;
+                mlc.cbmxctrl = sizeof(mc);
+                mlc.pamxctrl = &mc;
+                if (mixerGetLineControls((HMIXEROBJ)hMixer, &mlc, MIXER_GETLINECONTROLSF_ONEBYTYPE) == MMSYSERR_NOERROR) {
+                    MIXERCONTROLDETAILS mcd;
+                    MIXERCONTROLDETAILS_UNSIGNED mcdu;
+                    memset(&mcd, 0, sizeof(mcd));
+                    mcd.cbStruct = sizeof(mcd);
+                    mcd.dwControlID = mc.dwControlID;
+                    mcd.cChannels = 1;
+                    mcd.cbDetails = sizeof(mcdu);
+                    mcd.paDetails = &mcdu;
+                    mcdu.dwValue = (pos * mc.Bounds.dwMaximum) / 100;
+                    mixerSetControlDetails((HMIXEROBJ)hMixer, &mcd, MIXER_SETCONTROLDETAILSF_VALUE);
+                }
+            }
+            mixerClose(hMixer);
+        }
+    } else {
+        /* Win32s: find aux device with "volume" in name */
+        UINT numDevs = auxGetNumDevs();
+        UINT i;
+        for (i = 0; i < numDevs; i++) {
+            AUXCAPS caps;
+            if (auxGetDevCaps(i, &caps, sizeof(caps)) == MMSYSERR_NOERROR) {
+                char nameLower[MAXPNAMELEN];
+                strncpy(nameLower, caps.szPname, MAXPNAMELEN - 1);
+                nameLower[MAXPNAMELEN - 1] = '\0';
+                CharLowerA(nameLower);
+                if (strstr(nameLower, g_volumedevice) != NULL) {
+                    DWORD vol = (pos * 0xFFFF) / 100;
+                    vol = vol | (vol << 16);  /* Same for left and right */
+                    auxSetVolume(i, vol);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+/* Update or add a line in stvn.ini */
+static void UpdateIniLine(char key, const char *value) {
+    FILE *fp;
+    char lines[32][300];
+    int count = 0;
+    int found = -1;
+
+    /* Read existing file */
+    fp = fopen("stvn.ini", "r");
+    if (fp) {
+        while (count < 32 && fgets(lines[count], 300, fp)) {
+            /* Remove trailing newline */
+            size_t len = strlen(lines[count]);
+            if (len > 0 && lines[count][len-1] == '\n') lines[count][len-1] = '\0';
+            if (lines[count][0] == key) found = count;
+            count++;
+        }
+        fclose(fp);
+    }
+
+    /* Update or add line */
+    if (found >= 0) {
+        snprintf(lines[found], 300, "%c%s", key, value);
+    } else {
+        if (count < 32) {
+            snprintf(lines[count], 300, "%c%s", key, value);
+            count++;
+        }
+    }
+
+    /* Write back */
+    fp = fopen("stvn.ini", "w");
+    if (fp) {
+        for (int i = 0; i < count; i++) {
+            fprintf(fp, "%s\n", lines[i]);
+        }
+        fclose(fp);
+    }
+}
+
+/* Configuration dialog procedure */
+static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+        case WM_CREATE:
+            SetTimer(hwnd, 1, 100, NULL);
+            return 0;
+
+        case WM_TIMER: {
+            HWND hSlider = GetDlgItem(hwnd, IDC_VOLUME_SLIDER);
+            int sliderPos = GetScrollPos(hSlider, SB_CTL);
+            int masterVol = GetMasterVolume();
+            if (sliderPos != masterVol) {
+                SetScrollPos(hSlider, SB_CTL, masterVol, TRUE);
+                InvalidateRect(hSlider, NULL, TRUE);
+            }
+            return 0;
+        }
+
+        case WM_COMMAND:
+            if (LOWORD(wParam) == IDCANCEL) {
+                DestroyWindow(hwnd);
+                return 0;
+            } else if (LOWORD(wParam) == IDC_HQ_CHECKBOX) {
+                RECT mainRect, dlgRect;
+                int x, y;
+                g_hq2x = !g_hq2x;
+                CheckDlgButton(hwnd, IDC_HQ_CHECKBOX, g_hq2x ? BST_CHECKED : BST_UNCHECKED);
+                UpdateIniLine('H', g_hq2x ? "1" : "0");
+                RestoreWindowSize();
+                InvalidateRect(g_hwnd, NULL, TRUE);
+                /* Re-center dialog on main window */
+                GetWindowRect(g_hwnd, &mainRect);
+                GetWindowRect(hwnd, &dlgRect);
+                x = mainRect.left + ((mainRect.right - mainRect.left) - (dlgRect.right - dlgRect.left)) / 2;
+                y = mainRect.top + ((mainRect.bottom - mainRect.top) - (dlgRect.bottom - dlgRect.top)) / 2;
+                SetWindowPos(hwnd, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+                return 0;
+            }
+            break;
+
+        case WM_HSCROLL: {
+            HWND hSlider = (HWND)lParam;
+            if (hSlider == GetDlgItem(hwnd, IDC_VOLUME_SLIDER)) {
+                int pos = GetScrollPos(hSlider, SB_CTL);
+                switch (LOWORD(wParam)) {
+                    case SB_LINELEFT:  pos = max(0, pos - 1); break;
+                    case SB_LINERIGHT: pos = min(100, pos + 1); break;
+                    case SB_PAGELEFT:  pos = max(0, pos - 10); break;
+                    case SB_PAGERIGHT: pos = min(100, pos + 10); break;
+                    case SB_THUMBTRACK:
+                    case SB_THUMBPOSITION:
+                        pos = HIWORD(wParam);
+                        break;
+                }
+                SetScrollPos(hSlider, SB_CTL, pos, TRUE);
+                InvalidateRect(hSlider, NULL, TRUE);
+                SetMasterVolume(pos);
+            }
+            return 0;
+        }
+
+        case WM_CTLCOLORSTATIC:
+            SetBkColor((HDC)wParam, RGB(255, 255, 255));
+            return (LRESULT)GetStockObject(WHITE_BRUSH);
+
+        case WM_SYSCOMMAND:
+            if ((wParam & 0xFFF0) == SC_CLOSE) {
+                DestroyWindow(hwnd);
+                return 0;
+            }
+            if ((wParam & 0xFFF0) == SC_MOVE)
+                return 0;
+            break;
+
+        case WM_CLOSE:
+            DestroyWindow(hwnd);
+            return 0;
+
+        case WM_DESTROY: {
+            char volstr[4];
+            KillTimer(hwnd, 1);
+            snprintf(volstr, sizeof(volstr), "%03d", GetMasterVolume());
+            UpdateIniLine('V', volstr);
+            EnableWindow(g_hwnd, TRUE);
+            SetForegroundWindow(g_hwnd);
+            g_configDialog = NULL;
+            return 0;
+        }
+
+        /* Block window movement (Wine compatibility) */
+        case WM_NCHITTEST: {
+            LRESULT hit = DefWindowProc(hwnd, msg, wParam, lParam);
+            if (hit == HTCAPTION)
+                return HTCLIENT;
+            return hit;
+        }
+
+        default:
+            return DefWindowProc(hwnd, msg, wParam, lParam);
+    }
+    return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
+/* Show the configuration dialog */
+static void ShowConfigDialog(void) {
+    WNDCLASSEX wcDialog;
+    HWND hSlider;
+    RECT rect;
+    int dialogWidth = 320;
+    int dialogHeight = 100;
+    int x, y;
+
+    /* Don't open multiple dialogs */
+    if (g_configDialog != NULL) {
+        SetFocus(g_configDialog);
+        return;
+    }
+
+    /* Register dialog window class if not already registered */
+    memset(&wcDialog, 0, sizeof(wcDialog));
+    wcDialog.cbSize = sizeof(WNDCLASSEX);
+    wcDialog.lpfnWndProc = ConfigDlgProc;
+    wcDialog.hInstance = GetModuleHandle(NULL);
+    wcDialog.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+    wcDialog.lpszClassName = "STVNConfigClass";
+    wcDialog.hCursor = LoadCursor(NULL, IDC_ARROW);
+    RegisterClassEx(&wcDialog);
+
+    /* Center dialog on parent window */
+    GetWindowRect(g_hwnd, &rect);
+    x = rect.left + ((rect.right - rect.left) - dialogWidth) / 2;
+    y = rect.top + ((rect.bottom - rect.top) - dialogHeight) / 2;
+
+    /* Adjust for window frame */
+    rect.left = 0; rect.top = 0;
+    rect.right = dialogWidth; rect.bottom = dialogHeight;
+    AdjustWindowRect(&rect, WS_CAPTION | WS_SYSMENU, FALSE);
+
+    /* Create the dialog window (system modal) */
+    EnableWindow(g_hwnd, FALSE);
+    g_configDialog = CreateWindowEx(
+        WS_EX_DLGMODALFRAME,
+        "STVNConfigClass",
+        "Configuration",
+        WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE,
+        x, y,
+        rect.right - rect.left, rect.bottom - rect.top,
+        g_hwnd, NULL, GetModuleHandle(NULL), NULL);
+
+    if (!g_configDialog) {
+        EnableWindow(g_hwnd, TRUE);
+        return;
+    }
+
+    /* Create "Volume" label */
+    CreateWindow(
+        "STATIC", "Volume",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        10, 15, 60, 20,
+        g_configDialog, (HMENU)IDC_VOLUME_LABEL,
+        GetModuleHandle(NULL), NULL);
+
+    /* Create volume slider (horizontal scrollbar) */
+    hSlider = CreateWindow(
+        "SCROLLBAR", NULL,
+        WS_CHILD | WS_VISIBLE | SBS_HORZ,
+        75, 15, 230, 20,
+        g_configDialog, (HMENU)IDC_VOLUME_SLIDER,
+        GetModuleHandle(NULL), NULL);
+    SetScrollRange(hSlider, SB_CTL, 0, 100, FALSE);
+    SetScrollPos(hSlider, SB_CTL, GetMasterVolume(), TRUE);
+
+    /* Create "Enable HQ 2x scaler" label */
+    CreateWindow(
+        "STATIC", "Enable HQ 2x scaler",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        10, 50, 140, 20,
+        g_configDialog, (HMENU)IDC_HQ_LABEL,
+        GetModuleHandle(NULL), NULL);
+
+    /* Create checkbox */
+    CreateWindow(
+        "BUTTON", NULL,
+        WS_CHILD | WS_VISIBLE | BS_CHECKBOX,
+        155, 50, 20, 20,
+        g_configDialog, (HMENU)IDC_HQ_CHECKBOX,
+        GetModuleHandle(NULL), NULL);
+    CheckDlgButton(g_configDialog, IDC_HQ_CHECKBOX, g_hq2x ? BST_CHECKED : BST_UNCHECKED);
+
+    /* Set focus to the dialog */
+    SetFocus(g_configDialog);
+}
+
 /* Window procedure */
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_KEYDOWN:
-            if (!g_effectrunning) {
+            if (wParam == 'C') {
+                ShowConfigDialog();
+            } else if (!g_effectrunning) {
                 switch (wParam) {
                     case VK_SPACE: g_lastkey = 1; break;
                     case 'Q': g_lastkey = 2; break;
