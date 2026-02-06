@@ -40,6 +40,18 @@ static int g_recenterDialog = 0;
 static int g_dialogCreating = 0;
 static int g_wineVolume = -1;
 
+static void RecenterConfigDialog(void) {
+    RECT clientRect, dlgRect;
+    POINT topLeft = {0, 0};
+    int x, y;
+    GetClientRect(g_hwnd, &clientRect);
+    ClientToScreen(g_hwnd, &topLeft);
+    GetWindowRect(g_configDialog, &dlgRect);
+    x = topLeft.x + ((clientRect.right - clientRect.left) - (dlgRect.right - dlgRect.left)) / 2;
+    y = topLeft.y + ((clientRect.bottom - clientRect.top) - (dlgRect.bottom - dlgRect.top)) / 2;
+    SetWindowPos(g_configDialog, HWND_TOP, x, y, 0, 0, SWP_NOSIZE);
+}
+
 static void PlayMusic(const char *filename) {
     MCI_OPEN_PARMS mciOpen;
     MCI_PLAY_PARMS mciPlay;
@@ -917,13 +929,7 @@ static void RestoreWindowSize(void) {
             SetWindowPos(g_configDialog, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
         } else {
             /* Windows: re-center immediately */
-            RECT mainRect, dlgRect;
-            int x, y;
-            GetWindowRect(g_hwnd, &mainRect);
-            GetWindowRect(g_configDialog, &dlgRect);
-            x = mainRect.left + ((mainRect.right - mainRect.left) - (dlgRect.right - dlgRect.left)) / 2;
-            y = mainRect.top + ((mainRect.bottom - mainRect.top) - (dlgRect.bottom - dlgRect.top)) / 2;
-            SetWindowPos(g_configDialog, HWND_TOP, x, y, 0, 0, SWP_NOSIZE);
+            RecenterConfigDialog();
         }
     }
 }
@@ -1948,14 +1954,8 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             }
             /* Deferred re-center after main window resize (Wine workaround) */
             if (g_recenterDialog) {
-                RECT mainRect, dlgRect;
-                int x, y;
                 g_recenterDialog = 0;
-                GetWindowRect(g_hwnd, &mainRect);
-                GetWindowRect(hwnd, &dlgRect);
-                x = mainRect.left + ((mainRect.right - mainRect.left) - (dlgRect.right - dlgRect.left)) / 2;
-                y = mainRect.top + ((mainRect.bottom - mainRect.top) - (dlgRect.bottom - dlgRect.top)) / 2;
-                SetWindowPos(hwnd, HWND_TOP, x, y, 0, 0, SWP_NOSIZE);
+                RecenterConfigDialog();
             }
             return 0;
         }
@@ -2079,15 +2079,20 @@ static void ShowConfigDialog(void) {
     wcDialog.hCursor = LoadCursor(NULL, IDC_ARROW);
     RegisterClassEx(&wcDialog);
 
-    /* Center dialog on parent window */
-    GetWindowRect(g_hwnd, &rect);
-    x = rect.left + ((rect.right - rect.left) - dialogWidth) / 2;
-    y = rect.top + ((rect.bottom - rect.top) - dialogHeight) / 2;
-
-    /* Adjust for window frame */
+    /* Adjust for dialog window frame */
     rect.left = 0; rect.top = 0;
     rect.right = dialogWidth; rect.bottom = dialogHeight;
     AdjustWindowRect(&rect, WS_CAPTION | WS_SYSMENU, FALSE);
+
+    /* Center dialog on parent window's client area */
+    POINT topLeft = {0, 0};
+    RECT clientRect;
+    int dlgW = rect.right - rect.left;
+    int dlgH = rect.bottom - rect.top;
+    GetClientRect(g_hwnd, &clientRect);
+    ClientToScreen(g_hwnd, &topLeft);
+    x = topLeft.x + ((clientRect.right - clientRect.left) - dlgW) / 2;
+    y = topLeft.y + ((clientRect.bottom - clientRect.top) - dlgH) / 2;
 
     /* Create the dialog window (system modal) */
     EnableWindow(g_hwnd, FALSE);
