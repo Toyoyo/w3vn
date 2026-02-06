@@ -197,7 +197,6 @@ static void run(void) {
     char spritefile[260] = {0};
     int posx = 0;
     int posy = 0;
-    int isbackfunc = 0;
     char linex[4] = {0};
     char liney[4] = {0};
 
@@ -272,6 +271,9 @@ static void run(void) {
     }
 
     RestoreWindowSize();
+
+    /* Wine fix, avoid having the window almost out of screen */
+    if(IsWine() && g_hq2x == 1) CenterWindow();
 
     script = fopen(scriptfile, "r");
     if (script == NULL) {
@@ -797,7 +799,6 @@ static void run(void) {
                         savehistory[savehistory_idx - 1] = 0;
                         savehistory_idx--;
                         skipnexthistory = 1;
-                        isbackfunc = 1;
                         backfromvideo = 1;  /* Force sprite redraw in seektoline */
 
                         memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
