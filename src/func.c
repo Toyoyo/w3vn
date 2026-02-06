@@ -884,6 +884,17 @@ static void update_display(void) {
     free(flipped);
 }
 
+/* Center the window on screen */
+static void CenterWindow(void) {
+    RECT rect;
+    GetWindowRect(g_hwnd, &rect);
+    int w = rect.right - rect.left;
+    int h = rect.bottom - rect.top;
+    int x = (GetSystemMetrics(SM_CXSCREEN) - w) / 2;
+    int y = (GetSystemMetrics(SM_CYSCREEN) - h) / 2;
+    SetWindowPos(g_hwnd, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
 /* Restore window size (1280x800 if HQ2x enabled, 640x400 otherwise) */
 static void RestoreWindowSize(void) {
     RECT rect;
@@ -1958,6 +1969,9 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 CheckDlgButton(hwnd, IDC_HQ_CHECKBOX, g_hq2x ? BST_CHECKED : BST_UNCHECKED);
                 UpdateIniLine('H', g_hq2x ? "1" : "0");
                 RestoreWindowSize();
+
+                /* Wine fix, avoid having the window almost out of screen */
+                if(IsWine()) CenterWindow();
                 InvalidateRect(g_hwnd, NULL, TRUE);
                 /* Re-centering handled by RestoreWindowSize() */
                 return 0;
@@ -2028,7 +2042,7 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
            which desyncs Wine's internal coordinates making it unresponsive.
            Destroy and recreate to get a fresh window at the correct position. */
         case WM_MOVE:
-            if (!g_dialogCreating) {
+            if (!g_dialogCreating && IsWine()) {
                 DestroyWindow(hwnd);
                 ShowConfigDialog();
             }
