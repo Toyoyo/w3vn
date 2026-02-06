@@ -2082,7 +2082,7 @@ static void ShowConfigDialog(void) {
     /* Adjust for dialog window frame */
     rect.left = 0; rect.top = 0;
     rect.right = dialogWidth; rect.bottom = dialogHeight;
-    AdjustWindowRect(&rect, WS_CAPTION | WS_SYSMENU, FALSE);
+    AdjustWindowRectEx(&rect, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE, WS_EX_DLGMODALFRAME);
 
     /* Center dialog on parent window's client area */
     POINT topLeft = {0, 0};
