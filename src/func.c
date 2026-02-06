@@ -2060,7 +2060,7 @@ static void ShowConfigDialog(void) {
     HWND hSlider;
     RECT rect;
     int dialogWidth = 320;
-    int dialogHeight = 100;
+    int dialogHeight = 85;
     int x, y;
 
     /* Don't open multiple dialogs */
