@@ -24,6 +24,7 @@
 static void update_display(void);
 static void RestartMusic(void);
 static void CheckMusicStatus(void);
+static void ShowConfigDialog(void);
 
 /* Configuration dialog control IDs */
 #define IDC_VOLUME_LABEL    101
@@ -32,6 +33,11 @@ static void CheckMusicStatus(void);
 #define IDC_HQ_CHECKBOX     104
 
 static HWND g_configDialog = NULL;
+static int g_recenterDialog = 0;
+
+/* Wine workarounds */
+#define IsWine() (GetProcAddress(GetModuleHandle("ntdll.dll"), "wine_get_version") != NULL)
+static int g_dialogCreating = 0;
 static int g_wineVolume = -1;
 
 static void PlayMusic(const char *filename) {
@@ -63,7 +69,7 @@ static void PlayMusic(const char *filename) {
     mciOpen.lpstrElementName = fullpath;
     mciOpen.lpstrAlias = "w3vn_music";
 
-    if (GetProcAddress(GetModuleHandle("ntdll.dll"), "wine_get_version") != NULL) {
+    if (IsWine()) {
         /* Wine: force mpegvideo so setaudio volume works */
         mciOpen.lpstrDeviceType = "mpegvideo";
         dwReturn = mciSendCommand(0, MCI_OPEN, MCI_OPEN_ELEMENT | MCI_OPEN_ALIAS | MCI_OPEN_TYPE, (DWORD)(LPVOID)&mciOpen);
@@ -892,9 +898,22 @@ static void RestoreWindowSize(void) {
     SetWindowPos(g_hwnd, NULL, 0, 0, rect.right - rect.left, rect.bottom - rect.top,
                  SWP_NOMOVE | SWP_NOZORDER);
 
-    /* Bring config dialog back on top if it exists (Wine workaround) */
     if (g_configDialog) {
-        SetWindowPos(g_configDialog, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        if (IsWine()) {
+            /* Wine: defer re-center since the WM processes the resize
+               asynchronously; the dialog's 100ms timer handles it */
+            g_recenterDialog = 1;
+            SetWindowPos(g_configDialog, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        } else {
+            /* Windows: re-center immediately */
+            RECT mainRect, dlgRect;
+            int x, y;
+            GetWindowRect(g_hwnd, &mainRect);
+            GetWindowRect(g_configDialog, &dlgRect);
+            x = mainRect.left + ((mainRect.right - mainRect.left) - (dlgRect.right - dlgRect.left)) / 2;
+            y = mainRect.top + ((mainRect.bottom - mainRect.top) - (dlgRect.bottom - dlgRect.top)) / 2;
+            SetWindowPos(g_configDialog, HWND_TOP, x, y, 0, 0, SWP_NOSIZE);
+        }
     }
 }
 
@@ -1727,7 +1746,7 @@ static int DisplaySprite(const char *spritefile, int posx, int posy) {
 static int GetMasterVolume(void) {
     int pos = 100;
     DWORD ver = GetVersion();
-    if (GetProcAddress(GetModuleHandle("ntdll.dll"), "wine_get_version") != NULL) {
+    if (IsWine()) {
         /* Wine: return cached volume since waveOutGetVolume is unreliable */
         return (g_wineVolume >= 0) ? g_wineVolume : 100;
     } else if ((LOBYTE(LOWORD(ver)) >= 4)) {
@@ -1792,7 +1811,7 @@ static int GetMasterVolume(void) {
 /* Set master volume (0-100) */
 static void SetMasterVolume(int pos) {
     DWORD ver = GetVersion();
-    if (GetProcAddress(GetModuleHandle("ntdll.dll"), "wine_get_version") != NULL) {
+    if (IsWine()) {
         /* Wine: cache volume and apply to open MCI devices */
         char cmd[64];
         int vol = (pos * 1000) / 100;
@@ -1916,6 +1935,17 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 SetScrollPos(hSlider, SB_CTL, masterVol, TRUE);
                 InvalidateRect(hSlider, NULL, TRUE);
             }
+            /* Deferred re-center after main window resize (Wine workaround) */
+            if (g_recenterDialog) {
+                RECT mainRect, dlgRect;
+                int x, y;
+                g_recenterDialog = 0;
+                GetWindowRect(g_hwnd, &mainRect);
+                GetWindowRect(hwnd, &dlgRect);
+                x = mainRect.left + ((mainRect.right - mainRect.left) - (dlgRect.right - dlgRect.left)) / 2;
+                y = mainRect.top + ((mainRect.bottom - mainRect.top) - (dlgRect.bottom - dlgRect.top)) / 2;
+                SetWindowPos(hwnd, HWND_TOP, x, y, 0, 0, SWP_NOSIZE);
+            }
             return 0;
         }
 
@@ -1924,19 +1954,12 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 DestroyWindow(hwnd);
                 return 0;
             } else if (LOWORD(wParam) == IDC_HQ_CHECKBOX) {
-                RECT mainRect, dlgRect;
-                int x, y;
                 g_hq2x = !g_hq2x;
                 CheckDlgButton(hwnd, IDC_HQ_CHECKBOX, g_hq2x ? BST_CHECKED : BST_UNCHECKED);
                 UpdateIniLine('H', g_hq2x ? "1" : "0");
                 RestoreWindowSize();
                 InvalidateRect(g_hwnd, NULL, TRUE);
-                /* Re-center dialog on main window */
-                GetWindowRect(g_hwnd, &mainRect);
-                GetWindowRect(hwnd, &dlgRect);
-                x = mainRect.left + ((mainRect.right - mainRect.left) - (dlgRect.right - dlgRect.left)) / 2;
-                y = mainRect.top + ((mainRect.bottom - mainRect.top) - (dlgRect.bottom - dlgRect.top)) / 2;
-                SetWindowPos(hwnd, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+                /* Re-centering handled by RestoreWindowSize() */
                 return 0;
             }
             break;
@@ -1987,6 +2010,9 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             EnableWindow(g_hwnd, TRUE);
             SetForegroundWindow(g_hwnd);
             g_configDialog = NULL;
+
+            /* Wine fix, sometimes when the dialog closes, the main window does not get the focus back */
+            SetWindowPos(g_hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
             return 0;
         }
 
@@ -1997,6 +2023,16 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 return HTCLIENT;
             return hit;
         }
+
+        /* Wine managed mode: WM can move the dialog bypassing our blocks,
+           which desyncs Wine's internal coordinates making it unresponsive.
+           Destroy and recreate to get a fresh window at the correct position. */
+        case WM_MOVE:
+            if (!g_dialogCreating) {
+                DestroyWindow(hwnd);
+                ShowConfigDialog();
+            }
+            return 0;
 
         default:
             return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -2041,6 +2077,7 @@ static void ShowConfigDialog(void) {
 
     /* Create the dialog window (system modal) */
     EnableWindow(g_hwnd, FALSE);
+    g_dialogCreating = 1;
     g_configDialog = CreateWindowEx(
         WS_EX_DLGMODALFRAME,
         "STVNConfigClass",
@@ -2049,6 +2086,8 @@ static void ShowConfigDialog(void) {
         x, y,
         rect.right - rect.left, rect.bottom - rect.top,
         g_hwnd, NULL, GetModuleHandle(NULL), NULL);
+
+    g_dialogCreating = 0;
 
     if (!g_configDialog) {
         EnableWindow(g_hwnd, TRUE);
