@@ -41,6 +41,8 @@ static int g_origvolume = 100;
 /* Character rendering state */
 static int g_cursorX = 0;
 static int g_cursorY = 0;
+static int g_textdelay = 0; /* Delay between characters in ms (0 = instant) */
+static int g_textskip = 0;  /* 0=no delay, 1=delay active, -1=user skipped */
 
 /* Audio state */
 static UINT g_mciDeviceID = 0;
@@ -244,6 +246,12 @@ static void run(void) {
                         vol = atoi(line + 1);
                     }
                 }
+                if (*line == 'P') {
+                    if (strlen(line) >= 4) {
+                        g_textdelay = atoi(line + 1);
+                        if (g_textdelay > 100) g_textdelay = 100;
+                    }
+                }
                 if (*line == 'D') {
                     strncpy(g_volumedevice, line + 1, sizeof(g_volumedevice) - 1);
                     g_volumedevice[sizeof(g_volumedevice) - 1] = '\0';
@@ -299,6 +307,9 @@ static void run(void) {
         lineNumber++;
 
         if (strlen(line) > 0) {
+            /* Reset text delay when leaving a text block */
+            if (*line != 'T' && *line != 'N') g_textskip = 0;
+
             /* 'W': Wait for input */
             if (*line == 'W') {
                 update_display();
@@ -339,8 +350,8 @@ static void run(void) {
 
                         memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
                         locate(0, 337);
-                        print_string(" Rolling back...");
                         RedrawBorder();
+                        print_string(" Rolling back...");
                         update_display();
                         goto seektoline;
                     }
@@ -654,9 +665,21 @@ static void run(void) {
 
             /* 'T': Text line */
             if (*line == 'T') {
+                if (g_textskip == 0) g_textskip = 1;
                 locate(0, 337 + charlines * 15);
                 print_string(" ");
                 print_string(line + 1);
+                charlines++;
+            }
+
+            /* 'N': Immediate text line (no delay) */
+            if (*line == 'N') {
+                int prev_textskip = g_textskip;
+                g_textskip = 0;
+                locate(0, 337 + charlines * 15);
+                print_string(" ");
+                print_string(line + 1);
+                g_textskip = prev_textskip;
                 charlines++;
             }
 

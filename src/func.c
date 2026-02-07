@@ -31,6 +31,8 @@ static void ShowConfigDialog(void);
 #define IDC_VOLUME_SLIDER   102
 #define IDC_HQ_LABEL        103
 #define IDC_HQ_CHECKBOX     104
+#define IDC_DELAY_LABEL     105
+#define IDC_DELAY_SLIDER    106
 
 static HWND g_configDialog = NULL;
 static int g_recenterDialog = 0;
@@ -601,7 +603,9 @@ static void print_char(char c) {
     g_cursorX += 8;
 }
 
-/* Print a string */
+/* Print a string with optional per-character delay.
+ * If a key is pressed during the delay, sets g_textskip to skip the rest
+ * of the current text block (all consecutive 'T' lines). */
 static void print_string(const char *str) {
     while (*str) {
         if (*str == '\n') {
@@ -612,6 +616,26 @@ static void print_string(const char *str) {
             g_cursorX = 0;
         } else {
             print_char(*str);
+            if (g_textdelay > 0 && g_textskip > 0) {
+                DWORD start = GetTickCount();
+                update_display();
+                while ((GetTickCount() - start) < (DWORD)g_textdelay) {
+                    MSG msg;
+                    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+                        if (msg.message == WM_QUIT) {
+                            g_running = 0;
+                            return;
+                        }
+                        TranslateMessage(&msg);
+                        DispatchMessage(&msg);
+                    }
+                    if (g_lastkey) {
+                        g_lastkey = 0;
+                        g_textskip = -1;
+                        break;
+                    }
+                }
+            }
         }
         str++;
     }
@@ -1996,6 +2020,22 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 InvalidateRect(hSlider, NULL, TRUE);
                 SetMasterVolume(pos);
             }
+            if (hSlider == GetDlgItem(hwnd, IDC_DELAY_SLIDER)) {
+                int pos = GetScrollPos(hSlider, SB_CTL);
+                switch (LOWORD(wParam)) {
+                    case SB_LINELEFT:  pos = max(0, pos - 1); break;
+                    case SB_LINERIGHT: pos = min(100, pos + 1); break;
+                    case SB_PAGELEFT:  pos = max(0, pos - 10); break;
+                    case SB_PAGERIGHT: pos = min(100, pos + 10); break;
+                    case SB_THUMBTRACK:
+                    case SB_THUMBPOSITION:
+                        pos = HIWORD(wParam);
+                        break;
+                }
+                SetScrollPos(hSlider, SB_CTL, pos, TRUE);
+                InvalidateRect(hSlider, NULL, TRUE);
+                g_textdelay = 100 - pos;
+            }
             return 0;
         }
 
@@ -2018,9 +2058,12 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
         case WM_DESTROY: {
             char volstr[4];
+            char delaystr[4];
             KillTimer(hwnd, 1);
             snprintf(volstr, sizeof(volstr), "%03d", GetMasterVolume());
             UpdateIniLine('V', volstr);
+            snprintf(delaystr, sizeof(delaystr), "%03d", g_textdelay);
+            UpdateIniLine('P', delaystr);
             EnableWindow(g_hwnd, TRUE);
             SetForegroundWindow(g_hwnd);
             g_configDialog = NULL;
@@ -2060,7 +2103,7 @@ static void ShowConfigDialog(void) {
     HWND hSlider;
     RECT rect;
     int dialogWidth = 320;
-    int dialogHeight = 85;
+    int dialogHeight = 120;
     int x, y;
 
     /* Don't open multiple dialogs */
@@ -2117,7 +2160,7 @@ static void ShowConfigDialog(void) {
     CreateWindow(
         "STATIC", "Volume",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        10, 15, 60, 20,
+        10, 15, 80, 20,
         g_configDialog, (HMENU)IDC_VOLUME_LABEL,
         GetModuleHandle(NULL), NULL);
 
@@ -2125,17 +2168,35 @@ static void ShowConfigDialog(void) {
     hSlider = CreateWindow(
         "SCROLLBAR", NULL,
         WS_CHILD | WS_VISIBLE | SBS_HORZ,
-        75, 15, 230, 20,
+        95, 15, 210, 20,
         g_configDialog, (HMENU)IDC_VOLUME_SLIDER,
         GetModuleHandle(NULL), NULL);
     SetScrollRange(hSlider, SB_CTL, 0, 100, FALSE);
     SetScrollPos(hSlider, SB_CTL, GetMasterVolume(), TRUE);
 
+    /* Create "Text speed" label */
+    CreateWindow(
+        "STATIC", "Text speed",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        10, 50, 80, 20,
+        g_configDialog, (HMENU)IDC_DELAY_LABEL,
+        GetModuleHandle(NULL), NULL);
+
+    /* Create delay slider (horizontal scrollbar) */
+    hSlider = CreateWindow(
+        "SCROLLBAR", NULL,
+        WS_CHILD | WS_VISIBLE | SBS_HORZ,
+        95, 50, 210, 20,
+        g_configDialog, (HMENU)IDC_DELAY_SLIDER,
+        GetModuleHandle(NULL), NULL);
+    SetScrollRange(hSlider, SB_CTL, 0, 100, FALSE);
+    SetScrollPos(hSlider, SB_CTL, 100 - g_textdelay, TRUE);
+
     /* Create "Enable HQ 2x scaler" label */
     CreateWindow(
         "STATIC", "Enable HQ 2x scaler",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        10, 50, 140, 20,
+        10, 85, 140, 20,
         g_configDialog, (HMENU)IDC_HQ_LABEL,
         GetModuleHandle(NULL), NULL);
 
@@ -2143,7 +2204,7 @@ static void ShowConfigDialog(void) {
     CreateWindow(
         "BUTTON", NULL,
         WS_CHILD | WS_VISIBLE | BS_CHECKBOX,
-        155, 50, 20, 20,
+        155, 85, 20, 20,
         g_configDialog, (HMENU)IDC_HQ_CHECKBOX,
         GetModuleHandle(NULL), NULL);
     CheckDlgButton(g_configDialog, IDC_HQ_CHECKBOX, g_hq2x ? BST_CHECKED : BST_UNCHECKED);
@@ -2187,6 +2248,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 g_ignoreclick = 0;  /* Ignore the click that activated the window */
             } else if (g_windowactive) {
                 g_mouseclick = 1;
+                g_lastkey = 1;
             }
             break;
 

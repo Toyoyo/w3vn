@@ -44,6 +44,8 @@ TSTVN Engine - Win32s
 
 'R' line is wether we should save the original device sound volume on startup and restore it on quitting, useless on Windows Vista and up which use a per-application mixer, defaults to 0
 
+'P' Delay between each displayed character (set the text drawing speed), in millisecond. Defaults to 0, no delay, STVN behavior.
+
 Defaults: ``STVN.VNS`` & ``STVN Engine - Win32s``
 
 ## Supported formats / limitations:
@@ -95,6 +97,10 @@ Supported operands:
   Syntax: ``Ttext`` like ``THere's a text line``
 
   Line wrapping is disabled, so make sure a line isn't more than 79 characters!
+
+* 'N' : Immediate Text line
+
+  Same as 'T' line, except it is rendered immediately, ignoring the text rendering speed. Usefull for descriptive text of a video, for example
 
 * 'P' : Change music
 
