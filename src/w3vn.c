@@ -1163,8 +1163,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     ShowWindow(g_hwnd, nCmdShow);
     UpdateWindow(g_hwnd);
 
-    /* Request 1ms timer resolution (reprograms PIT on Win32s) */
-    timeBeginPeriod(1);
+    /* Request best available timer resolution */
+    TIMECAPS tc;
+    UINT timerPeriod = 100;
+    if (timeGetDevCaps(&tc, sizeof(tc)) == TIMERR_NOERROR) {
+        timerPeriod = tc.wPeriodMin;
+    }
+    timeBeginPeriod(timerPeriod);
 
     /* Run the engine */
     run();
@@ -1182,7 +1187,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     free(g_textarea);
     g_textarea = NULL;
 
-    timeEndPeriod(1);
+    timeEndPeriod(timerPeriod);
 
     if (g_hIcon) DestroyIcon(g_hIcon);
     UnregisterClass("STVNClass", hInstance);
