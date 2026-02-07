@@ -100,7 +100,7 @@ Supported operands:
 
 * 'N' : Immediate Text line
 
-  Same as 'T' line, except it is rendered immediately, ignoring the text rendering speed. Usefull for descriptive text of a video, for example
+  Same as 'T' line, except it is rendered immediately, ignoring the text rendering speed. Useful for descriptive text of a video, for example
 
 * 'P' : Change music
 
