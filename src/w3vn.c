@@ -1163,6 +1163,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     ShowWindow(g_hwnd, nCmdShow);
     UpdateWindow(g_hwnd);
 
+    /* Request 1ms timer resolution (reprograms PIT on Win32s) */
+    timeBeginPeriod(1);
+
     /* Run the engine */
     run();
 
@@ -1178,6 +1181,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     g_background = NULL;
     free(g_textarea);
     g_textarea = NULL;
+
+    timeEndPeriod(1);
 
     if (g_hIcon) DestroyIcon(g_hIcon);
     UnregisterClass("STVNClass", hInstance);

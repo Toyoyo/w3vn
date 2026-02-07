@@ -617,9 +617,9 @@ static void print_string(const char *str) {
         } else {
             print_char(*str);
             if (g_textdelay > 0 && g_textskip > 0) {
-                DWORD start = GetTickCount();
                 update_display();
-                while ((GetTickCount() - start) < (DWORD)g_textdelay) {
+                DWORD start = timeGetTime();
+                while ((timeGetTime() - start) < (DWORD)g_textdelay) {
                     MSG msg;
                     while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
                         if (msg.message == WM_QUIT) {
