@@ -1755,7 +1755,7 @@ static int DisplayTextSprite(const char *spritefile, int posx, int posy) {
     int x = 0, y = 0;
     for (uint32_t pctpos = 0; pctpos < pctsize; pctpos++) {
         if (pctmem[pctpos] == 10) { /* Newline */
-            if (posy + y <= SCREEN_HEIGHT) {
+            if (posy + y < TEXT_AREA_START) {
                 y++;
                 x = 0;
             } else {
@@ -1764,7 +1764,7 @@ static int DisplayTextSprite(const char *spritefile, int posx, int posy) {
         } else if (pctmem[pctpos] == ' ') { /* Transparency */
             if (x + posx < 639) x++;
         } else if (pctmem[pctpos] == '0' || pctmem[pctpos] == '1') {
-            if (x + posx < 639 && posy + y <= SCREEN_HEIGHT && posy + y < TEXT_AREA_START) {
+            if (x + posx < 639 && posy + y < TEXT_AREA_START) {
                 int ppos = (y + posy) * SCREEN_WIDTH + x + posx;
                 g_videoram[ppos] = (pctmem[pctpos] == '1') ? COLOR_BLACK : COLOR_WHITE;
                 x++;
