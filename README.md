@@ -49,7 +49,7 @@ TSTVN Engine - Win32s
 Defaults: ``STVN.VNS`` & ``STVN Engine - Win32s``
 
 ## Supported formats / limitations:
-* For pictures: PI3 monochrome, optionally gzipped, or PNG (via libpng). For PI3, the palette isn't used, only the first 25600 bytes are read (640x360 image, leaving 40 pixels for text, 4 lines)
+* For pictures: PI3 monochrome, optionally gzipped, or PNG (via libpng). For PI3, the palette isn't used, only the first 25600 bytes are read (640x320 image, leaving 80 pixels for the text box, 1 "Sayer" line and 4 text lines).
 
 * For audio: Anything MCI supports, like MIDI or RAW/ADPCM WAV, for the most compatible formats.
 
