@@ -607,9 +607,8 @@ static void print_char(char c) {
 
 void CALLBACK Timer0Proc(HWND hWnd, unsigned int msg, unsigned int idTimer, DWORD dwTime)
 {
-    if(g_framedrawn == 1) {
+    if ((timeGetTime() - g_lastrender) >= 15) {
         update_display();
-        g_framedrawn = 0;
         g_lastrender = timeGetTime();
     }
 }
@@ -641,8 +640,6 @@ static void print_string(const char *str) {
                         TranslateMessage(&msg);
                         DispatchMessage(&msg);
                     }
-                    if ((timeGetTime() - g_lastrender) >= 15)
-                        g_framedrawn = 1;
                     if (g_lastkey) {
                         g_lastkey = 0;
                         g_textskip = -1;
