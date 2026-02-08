@@ -1188,7 +1188,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     run();
 
     /* Cleanup - destroy window first to prevent WM_PAINT accessing freed memory */
-    if (g_hwnd) {
+    if (g_hwnd && IsWindow(g_hwnd)) {
         DestroyWindow(g_hwnd);
         g_hwnd = NULL;
     }
