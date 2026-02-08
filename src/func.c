@@ -773,13 +773,8 @@ static void hybrid_scale(uint32_t *src, int src_w, int src_h,
         int both_in_text = (y0 >= src_bot_border_end && y1 < src_top_border_start);
         int both_in_image = (y0 >= src_h - TEXT_AREA_START);
 
-        /* Check if either source row touches a border */
-        int any_in_top_border = ((y0 >= src_top_border_start && y0 < src_h - TEXT_AREA_START) ||
-                                 (y1 >= src_top_border_start && y1 < src_h - TEXT_AREA_START));
-        int any_in_bot_border = (y0 < src_bot_border_end || y1 < src_bot_border_end);
-
-        if (both_in_bot_border || both_in_top_border || any_in_top_border || any_in_bot_border) {
-            /* Border rows or transition into/out of border: all nearest-neighbor */
+        if (both_in_bot_border || both_in_top_border) {
+            /* Both source rows in border: all nearest-neighbor */
             nn_row(row_nn, out, 0, dst_w, x_ratio_nn);
         } else if (both_in_image) {
             /* Image area: all bilinear */
@@ -789,8 +784,18 @@ static void hybrid_scale(uint32_t *src, int src_w, int src_h,
             nn_row(row_nn, out, 0, left_end, x_ratio_nn);
             bilinear_row(row0, row1, out, left_end, right_start, src_w, x_ratio_bl, fy);
             nn_row(row_nn, out, right_start, dst_w, x_ratio_nn);
+        } else if (y0 < src_h - TEXT_AREA_START && y1 >= src_h - TEXT_AREA_START) {
+            /* Transition row straddling top border / image boundary */
+            if (src_y_nn >= src_h - TEXT_AREA_START) {
+                /* NN maps to image: bilinear but clamp lower row to image area */
+                uint32_t *clamped_row0 = src + (src_h - TEXT_AREA_START) * src_w;
+                bilinear_row(clamped_row0, row1, out, 0, dst_w, src_w, x_ratio_bl, fy);
+            } else {
+                /* NN maps to border: nearest-neighbor */
+                nn_row(row_nn, out, 0, dst_w, x_ratio_nn);
+            }
         } else {
-            /* Transition rows (straddling boundaries): per-pixel hybrid */
+            /* Other transition rows (within text box): per-pixel hybrid */
             hybrid_row(row_nn, row0, row1, out, dst_w, src_w,
                        x_ratio_nn, x_ratio_bl, fy, left_end, right_start);
         }
