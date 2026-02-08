@@ -838,8 +838,8 @@ static void run(void) {
 
                         memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
                         locate(0, 337);
-                        print_string(" Rolling back...");
                         RedrawBorder();
+                        print_string(" Rolling back...");
                         update_display();
                         goto seektoline;
                     }
