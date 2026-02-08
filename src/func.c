@@ -36,7 +36,6 @@ static void ShowConfigDialog(void);
 
 static HWND g_configDialog = NULL;
 static int g_recenterDialog = 0;
-static int g_framedrawn = 0;
 static DWORD g_lastrender = 0;
 
 /* Wine workarounds */
@@ -792,15 +791,14 @@ static void hybrid_scale(uint32_t *src, int src_w, int src_h,
 
 /* Update the Windows display from our framebuffer */
 static void update_display(void) {
-    g_framedrawn = 0;
-    if (!g_hwnd || !g_videoram) { g_framedrawn = 1; return; }
+    if (!g_hwnd || !g_videoram) return;
 
     RECT rect;
     GetClientRect(g_hwnd, &rect);
     int win_w = rect.right;
     int win_h = rect.bottom;
 
-    if (win_w <= 0 || win_h <= 0) { g_framedrawn = 1; return; }
+    if (win_w <= 0 || win_h <= 0) return;
 
     int text_h = SCREEN_HEIGHT - TEXT_AREA_START;  /* 80 */
     int image_h = TEXT_AREA_START;                  /* 320 */
@@ -828,7 +826,7 @@ static void update_display(void) {
 
     /* Flip source for bottom-up DIB format */
     uint32_t *flipped = (uint32_t *)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint32_t));
-    if (!flipped) { g_framedrawn = 1; return; }
+    if (!flipped) return;
 
     for (int y = 0; y < SCREEN_HEIGHT; y++) {
         memcpy(flipped + y * SCREEN_WIDTH,
@@ -841,14 +839,12 @@ static void update_display(void) {
         int content_h = image_scaled_h + text_scaled_h;
         if (dest_w <= 0 || content_h <= 0) {
             free(flipped);
-            g_framedrawn = 1;
             return;
         }
 
         uint32_t *scaled = (uint32_t *)malloc(dest_w * content_h * sizeof(uint32_t));
         if (!scaled) {
             free(flipped);
-            g_framedrawn = 1;
             return;
         }
 
@@ -933,7 +929,6 @@ static void update_display(void) {
     }
 
     free(flipped);
-    g_framedrawn = 1;
 }
 
 /* Center the window on screen */
