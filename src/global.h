@@ -33,5 +33,6 @@
 
 /* Music timer ID */
 #define MUSIC_TIMER_ID 1
+#define DEFER_RENDER_TIME_ID 2
 
 #endif /* FUNC_H */
