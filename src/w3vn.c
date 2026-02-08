@@ -195,6 +195,7 @@ static void run(void) {
     int skipnexthistory = 0;
     int loadsave = 0;
     int backfromvideo = 0;
+    char sayername[260] = {0};
 
     char spritefile[260] = {0};
     int posx = 0;
@@ -503,6 +504,8 @@ static void run(void) {
 
                                     if (*line == 'S') {
                                         savepointer = lineNumber;
+                                        strncpy(sayername, line + 1, sizeof(sayername) - 1);
+                                        sayername[sizeof(sayername) - 1] = '\0';
                                     }
 
                                     if (*line == 'B') {
@@ -563,6 +566,14 @@ static void run(void) {
                                 }
 
                                 charlines = 0;
+
+                                /* Clear text area and display sayer name from replay */
+                                memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
+                                RedrawBorder();
+                                if (sayername[0]) {
+                                    locate(0, 322);
+                                    print_string(sayername);
+                                }
 
                                 /* Display sprites */
                                 if (compare_sprites() != 0 || loadsave == 1 || backfromvideo == 1) {
@@ -642,6 +653,7 @@ static void run(void) {
 
                 locate(0, 322);
                 print_string(line + 1);
+                update_display();
 
                 savepointer = lineNumber;
                 if (skipnexthistory == 1) {

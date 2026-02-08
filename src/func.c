@@ -611,7 +611,6 @@ void CALLBACK Timer0Proc(HWND hWnd, unsigned int msg, unsigned int idTimer, DWOR
     if ((now - g_lastrender) >= g_renderthrottle) {
         update_display();
         DWORD elapsed = timeGetTime() - now;
-        g_lastrender = timeGetTime();
         g_renderthrottle = (elapsed > 15) ? elapsed : 15;
     }
 }
@@ -933,6 +932,7 @@ static void update_display(void) {
     }
 
     free(flipped);
+    g_lastrender = timeGetTime();
 }
 
 /* Center the window on screen */
