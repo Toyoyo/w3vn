@@ -773,8 +773,13 @@ static void hybrid_scale(uint32_t *src, int src_w, int src_h,
         int both_in_text = (y0 >= src_bot_border_end && y1 < src_top_border_start);
         int both_in_image = (y0 >= src_h - TEXT_AREA_START);
 
-        if (both_in_bot_border || both_in_top_border) {
-            /* Both source rows in border: all nearest-neighbor */
+        /* Check if either source row touches a border */
+        int any_in_top_border = ((y0 >= src_top_border_start && y0 < src_h - TEXT_AREA_START) ||
+                                 (y1 >= src_top_border_start && y1 < src_h - TEXT_AREA_START));
+        int any_in_bot_border = (y0 < src_bot_border_end || y1 < src_bot_border_end);
+
+        if (both_in_bot_border || both_in_top_border || any_in_top_border || any_in_bot_border) {
+            /* Border rows or transition into/out of border: all nearest-neighbor */
             nn_row(row_nn, out, 0, dst_w, x_ratio_nn);
         } else if (both_in_image) {
             /* Image area: all bilinear */

@@ -181,6 +181,7 @@ static void run(void) {
     char oldpicture[260] = {0};
     char musicfile[260] = {0};
     char oldmusicfile[260] = {0};
+    char sayername[260] = {0};
     int charlines = 0;
     int isplaying = 0;
     int willplaying = 0;
@@ -195,7 +196,6 @@ static void run(void) {
     int skipnexthistory = 0;
     int loadsave = 0;
     int backfromvideo = 0;
-    char sayername[260] = {0};
 
     char spritefile[260] = {0};
     int posx = 0;
@@ -567,14 +567,6 @@ static void run(void) {
 
                                 charlines = 0;
 
-                                /* Clear text area and display sayer name from replay */
-                                memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
-                                RedrawBorder();
-                                if (sayername[0]) {
-                                    locate(0, 322);
-                                    print_string(sayername);
-                                }
-
                                 /* Display sprites */
                                 if (compare_sprites() != 0 || loadsave == 1 || backfromvideo == 1) {
                                     for (int sc = 0; sc < spritecount; sc++) {
@@ -582,6 +574,15 @@ static void run(void) {
                                         snprintf(spritefile, sizeof(spritefile), "data\\%s", currentsprites[sc].file);
                                         DisplaySprite(spritefile, currentsprites[sc].x, currentsprites[sc].y);
                                     }
+                                }
+
+                                /* Clear text area and display sayer name from replay
+                                   This mostly superfluous, but can help in case of corrupted saves */
+                                memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
+                                RedrawBorder();
+                                if (sayername[0]) {
+                                    locate(0, 322);
+                                    print_string(sayername);
                                 }
 
                                 /* Play or stop music if needed */
