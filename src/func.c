@@ -37,6 +37,7 @@ static void ShowConfigDialog(void);
 static HWND g_configDialog = NULL;
 static int g_recenterDialog = 0;
 static DWORD g_lastrender = 0;
+static DWORD g_renderthrottle = 15;
 
 /* Wine workarounds */
 #define IsWine() (GetProcAddress(GetModuleHandle("ntdll.dll"), "wine_get_version") != NULL)
@@ -606,9 +607,12 @@ static void print_char(char c) {
 
 void CALLBACK Timer0Proc(HWND hWnd, unsigned int msg, unsigned int idTimer, DWORD dwTime)
 {
-    if ((timeGetTime() - g_lastrender) >= 15) {
+    DWORD now = timeGetTime();
+    if ((now - g_lastrender) >= g_renderthrottle) {
         update_display();
+        DWORD elapsed = timeGetTime() - now;
         g_lastrender = timeGetTime();
+        g_renderthrottle = (elapsed > 15) ? elapsed : 15;
     }
 }
 
