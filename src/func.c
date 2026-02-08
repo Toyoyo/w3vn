@@ -613,8 +613,6 @@ void CALLBACK Timer0Proc(HWND hWnd, unsigned int msg, unsigned int idTimer, DWOR
     DWORD now = timeGetTime();
     if ((now - g_lastrender) >= g_renderthrottle) {
         update_display();
-        DWORD elapsed = timeGetTime() - now;
-        g_renderthrottle = (elapsed > 15) ? elapsed : 15;
     }
 }
 
@@ -622,6 +620,8 @@ void CALLBACK Timer0Proc(HWND hWnd, unsigned int msg, unsigned int idTimer, DWOR
  * If a key is pressed during the delay, sets g_textskip to skip the rest
  * of the current text block (all consecutive 'T' lines). */
 static void print_string(const char *str) {
+    DWORD string_start = timeGetTime();
+    int char_count = 0;
     if(g_textdelay > 0 && g_textskip > 0) SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     while (*str) {
         if (*str == '\n') {
@@ -632,9 +632,10 @@ static void print_string(const char *str) {
             g_cursorX = 0;
         } else {
             print_char(*str);
+            char_count++;
             if (g_textdelay > 0 && g_textskip > 0) {
-                DWORD start = timeGetTime();
-                while ((timeGetTime() - start) < (DWORD)g_textdelay) {
+                DWORD target = string_start + char_count * (DWORD)g_textdelay;
+                while ((int)(target - timeGetTime()) > 0) {
                     MSG msg;
                     while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
                         if (msg.message == WM_QUIT) {
