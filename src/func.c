@@ -584,7 +584,10 @@ static void print_char(char c) {
         px += 2;
     }
 
-    if (px >= SCREEN_WIDTH || py >= SCREEN_HEIGHT) return;
+    /* Right clipping: respect text box right border (x=639) or screen edge */
+    int right_limit = (py >= TEXT_AREA_START) ? SCREEN_WIDTH - 1 : SCREEN_WIDTH;
+
+    if (px >= right_limit || py >= SCREEN_HEIGHT) return;
 
     for (int row = 0; row < 15; row++) {
         int screen_row = py + row;
@@ -593,8 +596,8 @@ static void print_char(char c) {
         uint8_t glyph_row = g_font8x15[idx][row];
         uint32_t *pixel = g_videoram + screen_row * SCREEN_WIDTH + px;
 
-        /* Write 8 pixels for this row of the glyph */
-        for (int bit = 0; bit < 8; bit++) {
+        /* Write pixels for this row of the glyph, clipping at right boundary */
+        for (int bit = 0; bit < 8 && px + bit < right_limit; bit++) {
             if (glyph_row & (0x80 >> bit)) {
                 pixel[bit] = COLOR_BLACK;
             } else {
