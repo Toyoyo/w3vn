@@ -36,6 +36,7 @@ static void ShowConfigDialog(void);
 
 static HWND g_configDialog = NULL;
 static int g_recenterDialog = 0;
+static int g_repositionWindow = 0;
 static DWORD g_lastrender = 0;
 static DWORD g_renderthrottle = 15;
 
@@ -966,6 +967,34 @@ static void CenterWindow(void) {
     int x = (GetSystemMetrics(SM_CXSCREEN) - w) / 2;
     int y = (GetSystemMetrics(SM_CYSCREEN) - h) / 2;
     SetWindowPos(g_hwnd, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
+static void RepositionWindow(void) {
+    RECT wrect;
+    GetWindowRect(g_hwnd, &wrect);
+    int screen_w = GetSystemMetrics(SM_CXSCREEN);
+    int screen_h = GetSystemMetrics(SM_CYSCREEN);
+    int new_x = wrect.left;
+    int new_y = wrect.top;
+
+    /* Adjust X position if needed */
+    if (wrect.left < 0) {
+        new_x = 0;
+    } else if (wrect.right > screen_w) {
+        new_x = screen_w - (wrect.right - wrect.left);
+    }
+
+    /* Adjust Y position if needed */
+    if (wrect.top < 0) {
+        new_y = 0;
+    } else if (wrect.bottom > screen_h) {
+        new_y = screen_h - (wrect.bottom - wrect.top);
+    }
+
+    /* Only move if adjustment is needed */
+    if (new_x != wrect.left || new_y != wrect.top) {
+        SetWindowPos(g_hwnd, NULL, new_x, new_y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+    }
 }
 
 /* Restore window size (1280x800 if HQ2x enabled, 640x400 otherwise) */
@@ -2013,6 +2042,11 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 SetScrollPos(hSlider, SB_CTL, masterVol, TRUE);
                 InvalidateRect(hSlider, NULL, TRUE);
             }
+            /* Deferred window replacement after hq2x enable/disable */
+            if (g_repositionWindow) {
+                g_repositionWindow = 0;
+                RepositionWindow();
+            }
             /* Deferred re-center after main window resize (Wine workaround) */
             if (g_recenterDialog) {
                 g_recenterDialog = 0;
@@ -2031,10 +2065,11 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 UpdateIniLine('H', g_hq2x ? "1" : "0");
                 RestoreWindowSize();
 
-                /* Wine fix, avoid having the window almost out of screen */
-                if(IsWine()) CenterWindow();
+                /* Wine fix, avoid having the window almost out of screen.
+                   Deferred because Wine processes the resize asynchronously;
+                   the dialog's 100ms timer handles it. */
+                if(IsWine()) g_repositionWindow = 1;
                 InvalidateRect(g_hwnd, NULL, TRUE);
-                /* Re-centering handled by RestoreWindowSize() */
                 return 0;
             }
             break;

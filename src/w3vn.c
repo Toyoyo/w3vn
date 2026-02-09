@@ -757,33 +757,7 @@ static void run(void) {
 
                     /* Wine fix: reposition window before video playback if partially off-screen to avoid hanging
                        0180:err:quartz:image_presenter_PresentImage Failed to blit */
-                    if (IsWine()) {
-                        RECT wrect;
-                        GetWindowRect(g_hwnd, &wrect);
-                        int screen_w = GetSystemMetrics(SM_CXSCREEN);
-                        int screen_h = GetSystemMetrics(SM_CYSCREEN);
-                        int new_x = wrect.left;
-                        int new_y = wrect.top;
-
-                        /* Adjust X position if needed */
-                        if (wrect.left < 0) {
-                            new_x = 0;
-                        } else if (wrect.right > screen_w) {
-                            new_x = screen_w - (wrect.right - wrect.left);
-                        }
-
-                        /* Adjust Y position if needed */
-                        if (wrect.top < 0) {
-                            new_y = 0;
-                        } else if (wrect.bottom > screen_h) {
-                            new_y = screen_h - (wrect.bottom - wrect.top);
-                        }
-
-                        /* Only move if adjustment is needed */
-                        if (new_x != wrect.left || new_y != wrect.top) {
-                            SetWindowPos(g_hwnd, NULL, new_x, new_y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-                        }
-                    }
+                    if (IsWine()) RepositionWindow();
 
                     PlayVideo(videofile);
                     /* Wait for video to finish or space to skip */
