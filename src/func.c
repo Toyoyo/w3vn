@@ -2057,7 +2057,7 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
         case WM_COMMAND:
             if (LOWORD(wParam) == IDCANCEL) {
-                DestroyWindow(hwnd);
+                SendMessage(hwnd, WM_CLOSE, 0, 0);
                 return 0;
             } else if (LOWORD(wParam) == IDC_HQ_CHECKBOX) {
                 g_hq2x = !g_hq2x;
@@ -2113,7 +2113,7 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
         case WM_CHAR:
             if (wParam == 'c' || wParam == 'C' || wParam == 'q' || wParam == 'Q') {
-                DestroyWindow(hwnd);
+                SendMessage(hwnd, WM_CLOSE, 0, 0);
                 return 0;
             }
             break;
@@ -2124,7 +2124,7 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
         case WM_SYSCOMMAND:
             if ((wParam & 0xFFF0) == SC_CLOSE) {
-                DestroyWindow(hwnd);
+                SendMessage(hwnd, WM_CLOSE, 0, 0);
                 return 0;
             }
             if ((wParam & 0xFFF0) == SC_MOVE)
@@ -2132,6 +2132,7 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             break;
 
         case WM_CLOSE:
+            EnableWindow(g_hwnd, TRUE);
             DestroyWindow(hwnd);
             return 0;
 
