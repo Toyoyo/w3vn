@@ -2254,7 +2254,7 @@ static void ShowConfigDialog(void) {
     hSlider = CreateWindow(
         "SCROLLBAR", NULL,
         WS_CHILD | WS_VISIBLE | SBS_HORZ,
-        95, 15, 210, 20,
+        95, 15, 210, 17,
         g_configDialog, (HMENU)IDC_VOLUME_SLIDER,
         GetModuleHandle(NULL), NULL);
     SetScrollRange(hSlider, SB_CTL, 0, 100, FALSE);
@@ -2272,7 +2272,7 @@ static void ShowConfigDialog(void) {
     hSlider = CreateWindow(
         "SCROLLBAR", NULL,
         WS_CHILD | WS_VISIBLE | SBS_HORZ,
-        95, 50, 210, 20,
+        95, 50, 210, 17,
         g_configDialog, (HMENU)IDC_DELAY_SLIDER,
         GetModuleHandle(NULL), NULL);
     SetScrollRange(hSlider, SB_CTL, 0, 100, FALSE);
