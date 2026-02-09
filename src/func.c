@@ -867,6 +867,14 @@ static void update_display(void) {
 
         hybrid_scale(flipped, SCREEN_WIDTH, SCREEN_HEIGHT, scaled, dest_w, content_h);
 
+        /* hybrid_scale maps source row text_h to a destination row that may not
+           equal text_scaled_h due to integer division rounding.  Compute the
+           actual split so the SetDIBitsToDevice calls match the buffer content. */
+        int buf_text_h = (text_h * content_h + SCREEN_HEIGHT - 1) / SCREEN_HEIGHT;
+        int buf_image_h = content_h - buf_text_h;
+        int hq_text_dest_y = win_h - buf_text_h;
+        int hq_image_dest_y = padding / 2;
+
         BITMAPINFOHEADER bmi;
         memset(&bmi, 0, sizeof(bmi));
         bmi.biSize = sizeof(BITMAPINFOHEADER);
@@ -888,16 +896,16 @@ static void update_display(void) {
                 FillRect(hdc, &bar, blackBrush);
             }
             if (padding > 0) {
-                SetRect(&bar, dest_x, 0, dest_x + dest_w, image_dest_y);
+                SetRect(&bar, dest_x, 0, dest_x + dest_w, hq_image_dest_y);
                 FillRect(hdc, &bar, blackBrush);
-                SetRect(&bar, dest_x, image_dest_y + image_scaled_h, dest_x + dest_w, text_dest_y);
+                SetRect(&bar, dest_x, hq_image_dest_y + buf_image_h, dest_x + dest_w, hq_text_dest_y);
                 FillRect(hdc, &bar, blackBrush);
             }
 
-            SetDIBitsToDevice(hdc, dest_x, image_dest_y, dest_w, image_scaled_h,
-                              0, text_scaled_h, 0, content_h,
+            SetDIBitsToDevice(hdc, dest_x, hq_image_dest_y, dest_w, buf_image_h,
+                              0, buf_text_h, 0, content_h,
                               scaled, (BITMAPINFO *)&bmi, DIB_RGB_COLORS);
-            SetDIBitsToDevice(hdc, dest_x, text_dest_y, dest_w, text_scaled_h,
+            SetDIBitsToDevice(hdc, dest_x, hq_text_dest_y, dest_w, buf_text_h,
                               0, 0, 0, content_h,
                               scaled, (BITMAPINFO *)&bmi, DIB_RGB_COLORS);
 
