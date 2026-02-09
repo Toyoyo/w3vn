@@ -1905,7 +1905,7 @@ static int GetMasterVolume(void) {
                 if (strstr(nameLower, g_volumedevice) != NULL) {
                     DWORD vol;
                     if (auxGetVolume(i, &vol) == MMSYSERR_NOERROR) {
-                        pos = (LOWORD(vol) * 100) / 0xFFFF;
+                        pos = (LOWORD(vol) * 100 + 0x7FFF) / 0xFFFF;
                     }
                     break;
                 }
