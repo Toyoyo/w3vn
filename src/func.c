@@ -2029,18 +2029,23 @@ static void UpdateIniLine(char key, const char *value) {
 
 /* Configuration dialog procedure */
 static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    static int volumeGrace = 0;  /* skip timer volume readback after user interaction */
     switch (msg) {
         case WM_CREATE:
             SetTimer(hwnd, 1, 100, NULL);
             return 0;
 
         case WM_TIMER: {
-            HWND hSlider = GetDlgItem(hwnd, IDC_VOLUME_SLIDER);
-            int sliderPos = GetScrollPos(hSlider, SB_CTL);
-            int masterVol = GetMasterVolume();
-            if (sliderPos != masterVol) {
-                SetScrollPos(hSlider, SB_CTL, masterVol, TRUE);
-                InvalidateRect(hSlider, NULL, TRUE);
+            if (volumeGrace > 0) {
+                volumeGrace--;
+            } else {
+                HWND hSlider = GetDlgItem(hwnd, IDC_VOLUME_SLIDER);
+                int sliderPos = GetScrollPos(hSlider, SB_CTL);
+                int masterVol = GetMasterVolume();
+                if (sliderPos != masterVol) {
+                    SetScrollPos(hSlider, SB_CTL, masterVol, TRUE);
+                    InvalidateRect(hSlider, NULL, TRUE);
+                }
             }
             /* Deferred window replacement after hq2x enable/disable */
             if (g_repositionWindow) {
@@ -2091,6 +2096,7 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 SetScrollPos(hSlider, SB_CTL, pos, TRUE);
                 InvalidateRect(hSlider, NULL, TRUE);
                 SetMasterVolume(pos);
+                volumeGrace = 10;  /* ignore timer readback for ~1000ms */
             }
             if (hSlider == GetDlgItem(hwnd, IDC_DELAY_SLIDER)) {
                 int pos = GetScrollPos(hSlider, SB_CTL);
