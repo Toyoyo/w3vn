@@ -2077,7 +2077,7 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         }
 
         case WM_CHAR:
-            if (wParam == 'c' || wParam == 'C') {
+            if (wParam == 'c' || wParam == 'C' || wParam == 'q' || wParam == 'Q') {
                 DestroyWindow(hwnd);
                 return 0;
             }
