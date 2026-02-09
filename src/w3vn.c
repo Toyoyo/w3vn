@@ -755,6 +755,36 @@ static void run(void) {
                     /* Also invalidate oldpicture to force a background redraw in case of rollback */
                     memset(oldpicture, 0, sizeof(oldpicture));
 
+                    /* Wine fix: reposition window before video playback if partially off-screen to avoid hanging
+                       0180:err:quartz:image_presenter_PresentImage Failed to blit */
+                    if (IsWine()) {
+                        RECT wrect;
+                        GetWindowRect(g_hwnd, &wrect);
+                        int screen_w = GetSystemMetrics(SM_CXSCREEN);
+                        int screen_h = GetSystemMetrics(SM_CYSCREEN);
+                        int new_x = wrect.left;
+                        int new_y = wrect.top;
+
+                        /* Adjust X position if needed */
+                        if (wrect.left < 0) {
+                            new_x = 0;
+                        } else if (wrect.right > screen_w) {
+                            new_x = screen_w - (wrect.right - wrect.left);
+                        }
+
+                        /* Adjust Y position if needed */
+                        if (wrect.top < 0) {
+                            new_y = 0;
+                        } else if (wrect.bottom > screen_h) {
+                            new_y = screen_h - (wrect.bottom - wrect.top);
+                        }
+
+                        /* Only move if adjustment is needed */
+                        if (new_x != wrect.left || new_y != wrect.top) {
+                            SetWindowPos(g_hwnd, NULL, new_x, new_y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+                        }
+                    }
+
                     PlayVideo(videofile);
                     /* Wait for video to finish or space to skip */
                     while (IsVideoPlaying() && g_running && !stopvideo) {
@@ -775,30 +805,13 @@ static void run(void) {
                             } else if (vmsg.message == WM_KEYDOWN && !g_configDialog && vmsg.wParam == 'Q') {
                                 char vcmd[128];
                                 RECT wrect, vwrect;
-                                int win_w, win_h;
                                 mciSendString("pause video", NULL, 0, NULL);
                                 /* Hide video child window */
                                 if (g_videoWindow) ShowWindow(g_videoWindow, SW_HIDE);
                                 g_effectrunning = 0;
                                 SaveScreen();
                                 DispQuit();
-                                /* Inline QuitMacro with dialog redraw on resize */
-                                GetClientRect(g_hwnd, &wrect);
-                                win_w = wrect.right;
-                                win_h = wrect.bottom;
-                                next = read_keyboard_status();
-                                while ((next != 10 && next != 11) && g_running) {
-                                    if (next == 7) RestoreWindowSize();
-                                    next = read_keyboard_status();
-                                    GetClientRect(g_hwnd, &wrect);
-                                    if (wrect.right != win_w || wrect.bottom != win_h) {
-                                        win_w = wrect.right;
-                                        win_h = wrect.bottom;
-                                        DispQuit();
-                                    }
-                                    Sleep(5);
-                                }
-                                if (next == 10) goto endprog;
+                                QuitMacro();
                                 RestoreScreen();
                                 update_display();
                                 g_effectrunning = 1;

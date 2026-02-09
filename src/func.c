@@ -2068,6 +2068,13 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             return 0;
         }
 
+        case WM_CHAR:
+            if (wParam == 'c' || wParam == 'C') {
+                DestroyWindow(hwnd);
+                return 0;
+            }
+            break;
+
         case WM_CTLCOLORSTATIC:
             SetBkColor((HDC)wParam, RGB(255, 255, 255));
             return (LRESULT)GetStockObject(WHITE_BRUSH);
