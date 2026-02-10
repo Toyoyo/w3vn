@@ -1172,36 +1172,40 @@ static void DispLoadSave(int mode) {
 
 /* Display help dialog */
 static void DispHelp(void) {
-    /* Fill dialog area with white - 140x145 centered in 640x320 */
-    for (int y = 88; y <= 232; y++) {
+    /* Dialog 142x162 centered in 640x320 image area */
+    /* Interior 140x160 (17 chars * 8px + 2px padding each side) */
+    /* Border wraps outside: x 249..390, y 79..240 */
+    for (int y = 80; y <= 239; y++) {
         for (int x = 250; x <= 389; x++) {
             g_videoram[y * SCREEN_WIDTH + x] = COLOR_WHITE;
         }
     }
 
-    locate(252, 88);
+    locate(252, 82);
     print_string("-     Usage     -");
-    locate(252, 104);
+    locate(252, 98);
     print_string("[q] Quit         ");
-    locate(252, 120);
+    locate(252, 114);
     print_string("[b] Back         ");
-    locate(252, 136);
+    locate(252, 130);
     print_string("[l] Load save    ");
-    locate(252, 152);
+    locate(252, 146);
     print_string("[s] Save state   ");
-    locate(252, 168);
+    locate(252, 162);
     print_string("[e] Erase save   ");
-    locate(252, 184);
+    locate(252, 178);
     print_string("[r] Restore size ");
-    locate(252, 200);
+    locate(252, 194);
     print_string("[c] Config       ");
-    locate(252, 216);
+    locate(252, 210);
     print_string("[ ] Advance      ");
+    locate(252, 226);
+    print_string("[esc] Restart    ");
 
-    DrawHLine(250, 88, 389);
-    DrawHLine(250, 232, 389);
-    DrawVLine(250, 88, 232);
-    DrawVLine(389, 88, 232);
+    DrawHLine(249, 79, 390);
+    DrawHLine(249, 240, 390);
+    DrawVLine(249, 79, 240);
+    DrawVLine(390, 79, 240);
 
     update_display();
 }
@@ -1229,24 +1233,24 @@ static void DispQuit(void) {
 }
 
 static void DispEsc(void) {
-    /* Dialog 158x34 centered in 640x320 image area */
-    /* Interior 156x32 (19 chars * 8px + 2px padding each side) */
-    /* Border wraps outside: x 241..398, y 143..176 */
+    /* Dialog 142x34 centered in 640x320 image area */
+    /* Interior 140x32 (17 chars * 8px + 2px padding each side) */
+    /* Border wraps outside: x 249..390, y 143..176 */
     for (int y = 144; y <= 175; y++) {
-        for (int x = 242; x <= 397; x++) {
+        for (int x = 250; x <= 389; x++) {
             g_videoram[y * SCREEN_WIDTH + x] = COLOR_WHITE;
         }
     }
 
-    locate(244, 146);
-    print_string("- Return to start -");
-    locate(244, 162);
-    print_string("  [1] Yes  [2] No  ");
+    locate(252, 146);
+    print_string("-    Restart    -");
+    locate(252, 162);
+    print_string(" [1] Yes  [2] No ");
 
-    DrawHLine(241, 143, 398);
-    DrawHLine(241, 176, 398);
-    DrawVLine(241, 143, 176);
-    DrawVLine(398, 143, 176);
+    DrawHLine(249, 143, 390);
+    DrawHLine(249, 176, 390);
+    DrawVLine(249, 143, 176);
+    DrawVLine(390, 143, 176);
 
     update_display();
 }
