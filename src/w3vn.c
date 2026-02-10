@@ -63,7 +63,7 @@ static HWND g_videoWindow = NULL;
 #define SaveScreen() memcpy(g_background, g_videoram, IMAGE_AREA_PIXELS * sizeof(uint32_t))
 
 /* Used to check a valid choice in Loading/Saving dialogs */
-#define NoValidSaveChoice(n) ((n) != 2 && ((n) < 10 || (n) > 19))
+#define NoValidSaveChoice(n) (((n) != 2 && (n) != 9) && ((n) < 10 || (n) > 19))
 
 #define SaveMacro() {\
     next = read_keyboard_status();\
@@ -72,7 +72,7 @@ static HWND g_videoWindow = NULL;
         next = read_keyboard_status();\
         Sleep(5);\
     }\
-    if (next != 2) {\
+    if (next != 2 && next != 9) {\
         HandleSaveFilename(next);\
         FILE *fd = fopen(savefile, "w");\
         RestoreScreen();\
@@ -100,7 +100,7 @@ static HWND g_videoWindow = NULL;
         next = read_keyboard_status();\
         Sleep(5);\
     }\
-    if (next != 2) {\
+    if (next != 2 && next != 9) {\
         HandleSaveFilename(next);\
         if(file_exists(savefile) == 0) {\
             if (remove(savefile) != 0) {\
@@ -162,7 +162,7 @@ static HWND g_videoWindow = NULL;
 
 #define QuitMacro() {\
     next = read_keyboard_status();\
-    while ((next != 10 && next != 11) && g_running) {\
+    while ((next != 9 && next != 10 && next != 11) && g_running) {\
         if (next == 7) RestoreWindowSize();\
         next = read_keyboard_status();\
         Sleep(5);\
@@ -172,7 +172,7 @@ static HWND g_videoWindow = NULL;
 
 #define EscMacro() {\
     next = read_keyboard_status();\
-    while ((next != 10 && next != 11) && g_running) {\
+    while ((next != 9 && next != 10 && next != 11) && g_running) {\
         if (next == 7) RestoreWindowSize();\
         next = read_keyboard_status();\
         Sleep(5);\
@@ -356,6 +356,7 @@ static void run(void) {
                         SaveScreen();
                         DispQuit();
                         QuitMacro();
+                        next = 0;
                         RestoreScreen();
                         update_display();
                     }
@@ -365,6 +366,7 @@ static void run(void) {
                         SaveScreen();
                         DispLoadSave(1);
                         SaveMacro();
+                        next = 0;
                         RestoreScreen();
                         update_display();
                     }
@@ -373,6 +375,7 @@ static void run(void) {
                         SaveScreen();
                         DispLoadSave(2);
                         DeleteMacro();
+                        next = 0;
                         RestoreScreen();
                         update_display();
                     }
@@ -381,6 +384,7 @@ static void run(void) {
                         SaveScreen();
                         DispEsc();
                         EscMacro();
+                        next = 0;
                         if (lineNumber == 0) break;
                         RestoreScreen();
                         update_display();
@@ -404,11 +408,12 @@ static void run(void) {
                     if (next == 6) {
                         SaveScreen();
                         DispHelp();
-                        while (next != 2 && g_running) {
+                        while (next != 2 && next != 9 && g_running) {
                             if (next == 7) RestoreWindowSize();
                             next = read_keyboard_status();
                             Sleep(5);
                         }
+                        next = 0;
                         RestoreScreen();
                         update_display();
                     }
@@ -430,7 +435,7 @@ static void run(void) {
                         RestoreScreen();
 
                     lblloadsave:
-                        if (next != 2) {
+                        if (next != 2 && next != 9) {
                             HandleSaveFilename(next);
 
                             if (file_exists(savefile) == 0) {
@@ -966,6 +971,7 @@ static void run(void) {
                             SaveScreen();
                             DispLoadSave(1);
                             SaveMacro();
+                            next = 0;
                             RestoreScreen();
                             update_display();
                         }
@@ -1000,14 +1006,19 @@ static void run(void) {
                                 Sleep(5);
                             }
 
-                            HandleSaveFilename(ldnext);
+                            if (ldnext != 2 && ldnext != 9) {
+                                HandleSaveFilename(ldnext);
 
-                            RestoreScreen();
-                            update_display();
-                            if (file_exists(savefile) == 0) {
-                                next = ldnext;
-                                loadsave = 1;
-                                goto lblloadsave;
+                                RestoreScreen();
+                                update_display();
+                                if (file_exists(savefile) == 0) {
+                                    next = ldnext;
+                                    loadsave = 1;
+                                    goto lblloadsave;
+                                }
+                            } else {
+                                RestoreScreen();
+                                update_display();
                             }
                             next = 0;
                         }
@@ -1029,11 +1040,12 @@ static void run(void) {
                         if (next == 6) {
                             SaveScreen();
                             DispHelp();
-                            while (next != 2 && g_running) {
+                            while (next != 2 && next != 9 && g_running) {
                                 if (next == 7) RestoreWindowSize();
                                 next = read_keyboard_status();
                                 Sleep(5);
                             }
+                            next = 0;
                             RestoreScreen();
                             update_display();
                         }

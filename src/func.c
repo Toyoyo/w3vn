@@ -2145,7 +2145,7 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         }
 
         case WM_CHAR:
-            if (wParam == 'c' || wParam == 'C' || wParam == 'q' || wParam == 'Q') {
+            if (wParam == 'c' || wParam == 'C' || wParam == 'q' || wParam == 'Q' || wParam == VK_ESCAPE) {
                 SendMessage(hwnd, WM_CLOSE, 0, 0);
                 return 0;
             }
