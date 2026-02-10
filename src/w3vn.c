@@ -477,6 +477,7 @@ static void run(void) {
                                 savepointer = 0;
                                 willplaying = 0;
                                 spritecount = 0;
+                                memset(picture, 0, sizeof(picture));
 
                                 /* On load (not rollback): stop music - will restart if 'P' is encountered */
                                 if (loadsave == 1) {
@@ -596,7 +597,11 @@ static void run(void) {
                                 }
 
                                 /* Load background */
-                                if (loadsave == 0) {
+                                if (picture[0] == '\0') {
+                                    memset(g_background, 0xFF, IMAGE_AREA_PIXELS * sizeof(uint32_t));
+                                    memset(oldpicture, 0, sizeof(oldpicture));
+                                    RestoreScreen();
+                                } else if (loadsave == 0) {
                                     if (strcmp(picture, oldpicture) != 0 || compare_sprites() != 0) {
                                         LoadBackgroundImage(picture, bgpalette, g_background);
                                         memcpy(oldpicture, picture, sizeof(oldpicture));
