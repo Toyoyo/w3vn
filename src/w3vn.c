@@ -170,6 +170,41 @@ static HWND g_videoWindow = NULL;
     if (next == 10) goto endprog;\
 }
 
+#define EscMacro() {\
+    next = read_keyboard_status();\
+    while ((next != 10 && next != 11) && g_running) {\
+        if (next == 7) RestoreWindowSize();\
+        next = read_keyboard_status();\
+        Sleep(5);\
+    }\
+    if (next == 10) {\
+        rewind(script);\
+        lineNumber = 0;\
+        savepointer = 0;\
+        willplaying = 0;\
+        spritecount = 0;\
+        memset(musicfile, 0, sizeof(musicfile));\
+        memset(oldmusicfile, 0, sizeof(oldmusicfile));\
+        memset(picture, 0, sizeof(picture));\
+        memset(oldpicture, 0, sizeof(oldpicture));\
+        reset_cursprites();\
+        reset_prevsprites();\
+        StopMusic();\
+        isplaying = 0;\
+        savehistory_idx = 0;\
+        memset(savehistory, 0, sizeof(savehistory));\
+        memset(choicedata, 0, 11);\
+        memset(sayername, 0, sizeof(sayername));\
+        skipnexthistory = 0;\
+        loadsave = 0;\
+        backfromvideo = 0;\
+        g_textskip = 0;\
+        charlines = 0;\
+        memset(g_background, 0xFF, IMAGE_AREA_PIXELS * sizeof(uint32_t));\
+        clear_screen();\
+    }\
+}
+
 /* Main engine function */
 static void run(void) {
     uint8_t bgpalette[32] = {0};
@@ -342,6 +377,14 @@ static void run(void) {
                         update_display();
                     }
 
+                    if (next == 9) {
+                        SaveScreen();
+                        DispEsc();
+                        EscMacro();
+                        if (lineNumber == 0) break;
+                        RestoreScreen();
+                        update_display();
+                    }
                     /* Back */
                     if (next == 5 && savehistory_idx >= 2) {
                         save_linenb = savehistory[savehistory_idx - 2];
@@ -931,6 +974,16 @@ static void run(void) {
                             update_display();
                         }
 
+                        if (next == 9) {
+                            SaveScreen();
+                            DispEsc();
+                            EscMacro();
+                            if (lineNumber == 0) break;
+                            next = 0;
+                            RestoreScreen();
+                            update_display();
+                        }
+
                         if (next == 4) {
                             SaveScreen();
                             DispLoadSave(0);
@@ -982,7 +1035,8 @@ static void run(void) {
 
                         Sleep(5);
                     }
-                    choicedata[(int)selectedregister] = (char)(next - 9);
+                    if (lineNumber > 0)
+                        choicedata[(int)selectedregister] = (char)(next - 9);
                 }
             }
 

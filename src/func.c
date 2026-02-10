@@ -1228,6 +1228,29 @@ static void DispQuit(void) {
     update_display();
 }
 
+static void DispEsc(void) {
+    /* Dialog 158x34 centered in 640x320 image area */
+    /* Interior 156x32 (19 chars * 8px + 2px padding each side) */
+    /* Border wraps outside: x 241..398, y 143..176 */
+    for (int y = 144; y <= 175; y++) {
+        for (int x = 242; x <= 397; x++) {
+            g_videoram[y * SCREEN_WIDTH + x] = COLOR_WHITE;
+        }
+    }
+
+    locate(244, 146);
+    print_string("- Return to start -");
+    locate(244, 162);
+    print_string("  [1] Yes  [2] No  ");
+
+    DrawHLine(241, 143, 398);
+    DrawHLine(241, 176, 398);
+    DrawVLine(241, 143, 176);
+    DrawVLine(398, 143, 176);
+
+    update_display();
+}
+
 /* Delay function compatible with Win32s
  * Uses timeGetTime() from winmm.dll for ~1ms resolution */
 static void FxDelay(DWORD ms) {
@@ -2315,6 +2338,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     case 'H': g_lastkey = 6; break;
                     case 'R': g_lastkey = 7; break;
                     case 'E': g_lastkey = 8; break;
+                    case VK_ESCAPE: g_lastkey = 9; break;
                     case '1': g_lastkey = 10; break;
                     case '2': g_lastkey = 11; break;
                     case '3': g_lastkey = 12; break;
