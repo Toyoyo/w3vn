@@ -228,3 +228,57 @@ Supported operands:
   15: 13 then 14
 
   16: 14 then 13
+
+  17: Horizontally fade to black from left to right
+
+  18: Horizontally fade to white from left to right
+
+  19: 17 then 18
+
+  20: 18 then 17
+
+  21: Horizontally fade to black from right to left
+
+  22: Horizontally fade to white from right to left
+
+  23: 21 then 22
+
+  24: 22 then 21
+
+  25: Horizontally fade to black from center to edges
+
+  26: Horizontally fade to white from center to edges
+
+  27: 25 then 26
+
+  28: 26 then 25
+
+  29: Horizontally fade to black from edges to center
+
+  30: Horizontally fade to white from edges to center
+
+  31: 29 then 30
+
+  32: 30 then 29
+
+  33: Circle fade out to black (from center outward)
+
+  34: Circle fade out to white (from center outward)
+
+  35: 33 then 34
+
+  36: 34 then 33
+
+  37: Circle fade in from black (from edges inward)
+
+  38: Circle fade in from white (from edges inward)
+
+  39: 37 then 38
+
+  40: 38 then 37
+
+  98: Fade the image area to black
+
+  99: Fade from black to an image
+
+  Syntax: ``X99[file]`` like ``X99IMAGE.PNG``

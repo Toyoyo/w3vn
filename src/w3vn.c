@@ -57,8 +57,6 @@ static HWND g_videoWindow = NULL;
 #include "func.c"
 
 /* Macros */
-#define IMAGE_AREA_PIXELS (SCREEN_WIDTH * TEXT_AREA_START)
-#define TEXT_AREA_PIXELS (SCREEN_WIDTH * 80)
 #define RestoreScreen() memcpy(g_videoram, g_background, IMAGE_AREA_PIXELS * sizeof(uint32_t))
 #define SaveScreen() memcpy(g_background, g_videoram, IMAGE_AREA_PIXELS * sizeof(uint32_t))
 
@@ -1113,8 +1111,20 @@ static void run(void) {
                     if (effectnum == 38) FxCircleIn(COLOR_WHITE);
                     if (effectnum == 39) { FxCircleIn(COLOR_BLACK); FxCircleIn(COLOR_WHITE); }
                     if (effectnum == 40) { FxCircleIn(COLOR_WHITE); FxCircleIn(COLOR_BLACK); }
+                    if (effectnum == 98) FxFadeOut();
+                    if (effectnum == 99) {
+                        if (strlen(line) >= 4) {
+                            char fadein_file[260];
+                            int filelen = (int)strlen(line) - 3;
+                            if (filelen > 250) filelen = 250;
+                            memset(fadein_file, 0, sizeof(fadein_file));
+                            memcpy(fadein_file, line + 3, filelen);
+                            FxFadeIn(fadein_file);
+                        }
+                    }
 
                     FlushMessages();
+                    reset_cursprites();
                     g_effectrunning = 0;
                     g_lastkey = 0;  /* Clear any key pressed during effect */
                     g_ignoreclick = 0;

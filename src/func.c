@@ -25,6 +25,7 @@ static void update_display(void);
 static void RestartMusic(void);
 static void CheckMusicStatus(void);
 static void ShowConfigDialog(void);
+static int LoadBackgroundImage(const char *picture, uint8_t *bgpalette, uint32_t *background);
 
 /* Configuration dialog control IDs */
 #define IDC_VOLUME_LABEL    101
@@ -1483,6 +1484,109 @@ static void FxCircleIn(uint32_t color) {
         update_display();
         FxDelay(40);
     }
+}
+
+/* Fade the image area to black in 20 steps over 2 seconds */
+static void FxFadeOut(void) {
+    const int steps = 20;
+
+    /* Fade steps: blend current pixels towards black */
+    for (int step = 1; step <= steps; step++) {
+        /* Calculate blend factor: 0.1, 0.2, ..., 1.0 */
+        int blend_numerator = step;
+        int blend_denominator = steps;
+
+        /* Process image area (0-319) */
+        uint32_t *img_start = g_videoram;
+        uint32_t *img_end = g_videoram + TEXT_AREA_START * SCREEN_WIDTH;
+
+        for (uint32_t *ptr = img_start; ptr < img_end; ptr++) {
+            uint32_t pixel = *ptr;
+            uint8_t b = pixel & 0xFF;
+            uint8_t g = (pixel >> 8) & 0xFF;
+            uint8_t r = (pixel >> 16) & 0xFF;
+            uint8_t a = pixel >> 24;
+
+            /* Blend towards black: result = original * (1 - factor) */
+            b = b * (blend_denominator - blend_numerator) / blend_denominator;
+            g = g * (blend_denominator - blend_numerator) / blend_denominator;
+            r = r * (blend_denominator - blend_numerator) / blend_denominator;
+
+            *ptr = ((uint32_t)a << 24) | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+        }
+
+        update_display();
+        FxDelay(50);
+    }
+
+    /* Ensure final state is pure black */
+    for (uint32_t *ptr = g_videoram; ptr < g_videoram + TEXT_AREA_START * SCREEN_WIDTH; ptr++) {
+        *ptr = COLOR_BLACK;
+    }
+    update_display();
+}
+
+/* Fade from black to an image in 20 steps over 2 seconds */
+static void FxFadeIn(const char *filename) {
+    uint32_t *target_buffer = (uint32_t *)malloc(IMAGE_AREA_PIXELS * sizeof(uint32_t));
+    if (!target_buffer) return;
+
+    /* Load the target image */
+    char full_path[260];
+    snprintf(full_path, sizeof(full_path), "data\\%s", filename);
+
+    uint8_t temp_palette[32];
+    if (LoadBackgroundImage(full_path, temp_palette, target_buffer) != 0) {
+        free(target_buffer);
+        return;
+    }
+
+    /* Start with black screen */
+    for (uint32_t *ptr = g_videoram; ptr < g_videoram + TEXT_AREA_START * SCREEN_WIDTH; ptr++) {
+        *ptr = COLOR_BLACK;
+    }
+    update_display();
+    /* Fade steps: blend from black towards target image */
+    const int steps = 20;
+    for (int step = 1; step <= steps; step++) {
+        /* Calculate blend factor: 0.05, 0.10, ..., 1.0 */
+        int blend_numerator = step;
+        int blend_denominator = steps;
+
+        /* Process image area (0-319) */
+        uint32_t *img_start = g_videoram;
+        uint32_t *img_end = g_videoram + TEXT_AREA_START * SCREEN_WIDTH;
+        uint32_t *target_ptr = target_buffer;
+
+        for (uint32_t *ptr = img_start; ptr < img_end; ptr++, target_ptr++) {
+            uint32_t target_pixel = *target_ptr;
+            uint8_t target_b = target_pixel & 0xFF;
+            uint8_t target_g = (target_pixel >> 8) & 0xFF;
+            uint8_t target_r = (target_pixel >> 16) & 0xFF;
+
+            /* Blend from black to target: result = target * factor */
+            uint8_t b = target_b * blend_numerator / blend_denominator;
+            uint8_t g = target_g * blend_numerator / blend_denominator;
+            uint8_t r = target_r * blend_numerator / blend_denominator;
+
+            *ptr = 0xFF000000 | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+        }
+
+        update_display();
+        FxDelay(50);
+    }
+
+    /* Ensure final state matches target image */
+    uint32_t *img_start = g_videoram;
+    uint32_t *img_end = g_videoram + TEXT_AREA_START * SCREEN_WIDTH;
+    uint32_t *target_ptr = target_buffer;
+
+    for (uint32_t *ptr = img_start; ptr < img_end; ptr++, target_ptr++) {
+        *ptr = *target_ptr;
+    }
+    update_display();
+
+    free(target_buffer);
 }
 
 /* Load a PNG image into 32-bit BGRA buffer */
