@@ -46,6 +46,38 @@ static DWORD g_renderthrottle = 15;
 static int g_dialogCreating = 0;
 static int g_wineVolume = -1;
 
+/* Subclassing for tab navigation */
+static WNDPROC g_origVolumeSliderProc = NULL;
+static WNDPROC g_origDelaySliderProc = NULL;
+static WNDPROC g_origCheckboxProc = NULL;
+
+/* Subclass procedure for controls to forward Tab key to parent */
+static LRESULT CALLBACK SliderSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    if (msg == WM_GETDLGCODE) {
+        /* Indicate we want all keys including Tab */
+        return DLGC_WANTALLKEYS;
+    }
+    if (msg == WM_KEYDOWN && wParam == VK_TAB) {
+        /* Forward Tab to parent dialog */
+        SendMessage(GetParent(hwnd), WM_KEYDOWN, wParam, lParam);
+        return 0;
+    }
+    if (msg == WM_CHAR) {
+        /* Forward pressed keys to parent dialog */
+        SendMessage(GetParent(hwnd), WM_CHAR, wParam, lParam);
+        return 0;
+    }
+    /* Call the appropriate original procedure */
+    WNDPROC origProc;
+    if (hwnd == GetDlgItem(g_configDialog, IDC_VOLUME_SLIDER))
+        origProc = g_origVolumeSliderProc;
+    else if (hwnd == GetDlgItem(g_configDialog, IDC_DELAY_SLIDER))
+        origProc = g_origDelaySliderProc;
+    else
+        origProc = g_origCheckboxProc;
+    return CallWindowProc(origProc, hwnd, msg, wParam, lParam);
+}
+
 static void RecenterConfigDialog(void) {
     RECT clientRect, dlgRect;
     POINT topLeft = {0, 0};
@@ -2255,6 +2287,35 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             }
             break;
 
+        case WM_KEYDOWN:
+            if (wParam == VK_TAB) {
+                HWND hVolSlider = GetDlgItem(hwnd, IDC_VOLUME_SLIDER);
+                HWND hDelaySlider = GetDlgItem(hwnd, IDC_DELAY_SLIDER);
+                HWND hCheckbox = GetDlgItem(hwnd, IDC_HQ_CHECKBOX);
+                HWND hFocused = GetFocus();
+
+                HWND hNext = NULL;
+
+                if (GetKeyState(VK_SHIFT) & 0x8000) {
+                    /* Shift+Tab - navigate backwards */
+                    if (hFocused == hVolSlider) hNext = hCheckbox;
+                    else if (hFocused == hDelaySlider) hNext = hVolSlider;
+                    else if (hFocused == hCheckbox) hNext = hDelaySlider;
+                    else hNext = hCheckbox;  /* Default: start from end */
+                } else {
+                    /* Tab - navigate forwards */
+                    if (hFocused == hVolSlider) hNext = hDelaySlider;
+                    else if (hFocused == hDelaySlider) hNext = hCheckbox;
+                    else if (hFocused == hCheckbox) hNext = hVolSlider;
+                    else hNext = hVolSlider;  /* Default: start from beginning */
+                }
+                if (hNext) {
+                    SetFocus(hNext);
+                }
+                return 0;
+            }
+            break;
+
         case WM_CTLCOLORSTATIC:
             SetBkColor((HDC)wParam, RGB(255, 255, 255));
             return (LRESULT)GetStockObject(WHITE_BRUSH);
@@ -2276,11 +2337,31 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         case WM_DESTROY: {
             char volstr[4];
             char delaystr[4];
+            HWND hVolSlider, hDelaySlider, hCheckbox;
+
             KillTimer(hwnd, 1);
             snprintf(volstr, sizeof(volstr), "%03d", GetMasterVolume());
             UpdateIniLine('V', volstr);
             snprintf(delaystr, sizeof(delaystr), "%03d", g_textdelay);
             UpdateIniLine('P', delaystr);
+
+            /* Restore original window procedures for subclassed controls */
+            hVolSlider = GetDlgItem(hwnd, IDC_VOLUME_SLIDER);
+            hDelaySlider = GetDlgItem(hwnd, IDC_DELAY_SLIDER);
+            hCheckbox = GetDlgItem(hwnd, IDC_HQ_CHECKBOX);
+            if (hVolSlider && g_origVolumeSliderProc) {
+                SetWindowLongPtr(hVolSlider, GWLP_WNDPROC, (LONG_PTR)g_origVolumeSliderProc);
+            }
+            if (hDelaySlider && g_origDelaySliderProc) {
+                SetWindowLongPtr(hDelaySlider, GWLP_WNDPROC, (LONG_PTR)g_origDelaySliderProc);
+            }
+            if (hCheckbox && g_origCheckboxProc) {
+                SetWindowLongPtr(hCheckbox, GWLP_WNDPROC, (LONG_PTR)g_origCheckboxProc);
+            }
+            g_origVolumeSliderProc = NULL;
+            g_origDelaySliderProc = NULL;
+            g_origCheckboxProc = NULL;
+
             EnableWindow(g_hwnd, TRUE);
             SetForegroundWindow(g_hwnd);
             g_configDialog = NULL;
@@ -2384,12 +2465,14 @@ static void ShowConfigDialog(void) {
     /* Create volume slider (horizontal scrollbar) */
     hSlider = CreateWindow(
         "SCROLLBAR", NULL,
-        WS_CHILD | WS_VISIBLE | SBS_HORZ,
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | SBS_HORZ,
         95, 15, 210, 17,
         g_configDialog, (HMENU)IDC_VOLUME_SLIDER,
         GetModuleHandle(NULL), NULL);
     SetScrollRange(hSlider, SB_CTL, 0, 100, FALSE);
     SetScrollPos(hSlider, SB_CTL, GetMasterVolume(), TRUE);
+    /* Subclass to forward Tab key to parent */
+    g_origVolumeSliderProc = (WNDPROC)SetWindowLongPtr(hSlider, GWLP_WNDPROC, (LONG_PTR)SliderSubclassProc);
 
     /* Create "Text speed" label */
     CreateWindow(
@@ -2402,12 +2485,14 @@ static void ShowConfigDialog(void) {
     /* Create delay slider (horizontal scrollbar) */
     hSlider = CreateWindow(
         "SCROLLBAR", NULL,
-        WS_CHILD | WS_VISIBLE | SBS_HORZ,
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | SBS_HORZ,
         95, 50, 210, 17,
         g_configDialog, (HMENU)IDC_DELAY_SLIDER,
         GetModuleHandle(NULL), NULL);
     SetScrollRange(hSlider, SB_CTL, 0, 100, FALSE);
     SetScrollPos(hSlider, SB_CTL, 100 - g_textdelay, TRUE);
+    /* Subclass to forward Tab key to parent */
+    g_origDelaySliderProc = (WNDPROC)SetWindowLongPtr(hSlider, GWLP_WNDPROC, (LONG_PTR)SliderSubclassProc);
 
     /* Create "Enable HQ 2x scaler" label */
     CreateWindow(
@@ -2418,13 +2503,15 @@ static void ShowConfigDialog(void) {
         GetModuleHandle(NULL), NULL);
 
     /* Create checkbox */
-    CreateWindow(
+    hSlider = CreateWindow(
         "BUTTON", NULL,
-        WS_CHILD | WS_VISIBLE | BS_CHECKBOX,
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_CHECKBOX,
         155, 85, 20, 20,
         g_configDialog, (HMENU)IDC_HQ_CHECKBOX,
         GetModuleHandle(NULL), NULL);
     CheckDlgButton(g_configDialog, IDC_HQ_CHECKBOX, g_hq2x ? BST_CHECKED : BST_UNCHECKED);
+    /* Subclass to forward Tab key to parent */
+    g_origCheckboxProc = (WNDPROC)SetWindowLongPtr(hSlider, GWLP_WNDPROC, (LONG_PTR)SliderSubclassProc);
 
     /* Set focus to the dialog */
     SetFocus(g_configDialog);
