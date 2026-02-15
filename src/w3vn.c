@@ -850,7 +850,7 @@ static void run(void) {
                                     ShowWindow(g_videoWindow, SW_SHOW);
                                 }
                                 mciSendString("resume video", NULL, 0, NULL);
-                            } else {
+                            } else if (!ConfigDialogMessage(&vmsg)) {
                                 TranslateMessage(&vmsg);
                                 DispatchMessage(&vmsg);
                             }
