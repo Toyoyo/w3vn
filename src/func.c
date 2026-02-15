@@ -1508,38 +1508,37 @@ static void FxCircleIn(uint32_t color) {
 /* Fade the image area to black in 20 steps over 2 seconds */
 static void FxFadeOut(void) {
     const int steps = 20;
+    uint32_t *original = (uint32_t *)malloc(IMAGE_AREA_PIXELS * sizeof(uint32_t));
+    if (!original) return;
 
-    /* Fade steps: blend current pixels towards black */
+    memcpy(original, g_videoram, IMAGE_AREA_PIXELS * sizeof(uint32_t));
+
+    /* Fade steps: blend original pixels towards black */
     for (int step = 1; step <= steps; step++) {
-        /* Calculate blend factor: 0.1, 0.2, ..., 1.0 */
-        int blend_numerator = step;
-        int blend_denominator = steps;
+        uint8_t lut[256];
+        int inv = steps - step;
+        for (int i = 0; i < 256; i++)
+            lut[i] = i * inv / steps;
 
-        /* Process image area (0-319) */
-        uint32_t *img_start = g_videoram;
-        uint32_t *img_end = g_videoram + TEXT_AREA_START * SCREEN_WIDTH;
-
-        for (uint32_t *ptr = img_start; ptr < img_end; ptr++) {
-            uint32_t pixel = *ptr;
-            uint8_t b = pixel & 0xFF;
-            uint8_t g = (pixel >> 8) & 0xFF;
-            uint8_t r = (pixel >> 16) & 0xFF;
-            uint8_t a = pixel >> 24;
-
-            /* Blend towards black: result = original * (1 - factor) */
-            b = b * (blend_denominator - blend_numerator) / blend_denominator;
-            g = g * (blend_denominator - blend_numerator) / blend_denominator;
-            r = r * (blend_denominator - blend_numerator) / blend_denominator;
-
-            *ptr = ((uint32_t)a << 24) | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+        uint32_t *src = original;
+        uint32_t *dst = g_videoram;
+        uint32_t *dst_end = g_videoram + IMAGE_AREA_PIXELS;
+        for (; dst < dst_end; src++, dst++) {
+            uint32_t pixel = *src;
+            *dst = (pixel & 0xFF000000)
+                 | ((uint32_t)lut[(pixel >> 16) & 0xFF] << 16)
+                 | ((uint32_t)lut[(pixel >> 8) & 0xFF] << 8)
+                 | lut[pixel & 0xFF];
         }
 
         update_display();
         FxDelay(50);
     }
 
+    free(original);
+
     /* Ensure final state is pure black */
-    for (uint32_t *ptr = g_videoram; ptr < g_videoram + TEXT_AREA_START * SCREEN_WIDTH; ptr++) {
+    for (uint32_t *ptr = g_videoram; ptr < g_videoram + IMAGE_AREA_PIXELS; ptr++) {
         *ptr = COLOR_BLACK;
     }
     update_display();
@@ -1561,34 +1560,27 @@ static void FxFadeIn(const char *filename) {
     }
 
     /* Start with black screen */
-    for (uint32_t *ptr = g_videoram; ptr < g_videoram + TEXT_AREA_START * SCREEN_WIDTH; ptr++) {
+    for (uint32_t *ptr = g_videoram; ptr < g_videoram + IMAGE_AREA_PIXELS; ptr++) {
         *ptr = COLOR_BLACK;
     }
     update_display();
+
     /* Fade steps: blend from black towards target image */
     const int steps = 20;
     for (int step = 1; step <= steps; step++) {
-        /* Calculate blend factor: 0.05, 0.10, ..., 1.0 */
-        int blend_numerator = step;
-        int blend_denominator = steps;
+        uint8_t lut[256];
+        for (int i = 0; i < 256; i++)
+            lut[i] = i * step / steps;
 
-        /* Process image area (0-319) */
-        uint32_t *img_start = g_videoram;
-        uint32_t *img_end = g_videoram + TEXT_AREA_START * SCREEN_WIDTH;
-        uint32_t *target_ptr = target_buffer;
-
-        for (uint32_t *ptr = img_start; ptr < img_end; ptr++, target_ptr++) {
-            uint32_t target_pixel = *target_ptr;
-            uint8_t target_b = target_pixel & 0xFF;
-            uint8_t target_g = (target_pixel >> 8) & 0xFF;
-            uint8_t target_r = (target_pixel >> 16) & 0xFF;
-
-            /* Blend from black to target: result = target * factor */
-            uint8_t b = target_b * blend_numerator / blend_denominator;
-            uint8_t g = target_g * blend_numerator / blend_denominator;
-            uint8_t r = target_r * blend_numerator / blend_denominator;
-
-            *ptr = 0xFF000000 | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+        uint32_t *src = target_buffer;
+        uint32_t *dst = g_videoram;
+        uint32_t *dst_end = g_videoram + IMAGE_AREA_PIXELS;
+        for (; dst < dst_end; src++, dst++) {
+            uint32_t pixel = *src;
+            *dst = 0xFF000000
+                 | ((uint32_t)lut[(pixel >> 16) & 0xFF] << 16)
+                 | ((uint32_t)lut[(pixel >> 8) & 0xFF] << 8)
+                 | lut[pixel & 0xFF];
         }
 
         update_display();
@@ -1596,13 +1588,7 @@ static void FxFadeIn(const char *filename) {
     }
 
     /* Ensure final state matches target image */
-    uint32_t *img_start = g_videoram;
-    uint32_t *img_end = g_videoram + TEXT_AREA_START * SCREEN_WIDTH;
-    uint32_t *target_ptr = target_buffer;
-
-    for (uint32_t *ptr = img_start; ptr < img_end; ptr++, target_ptr++) {
-        *ptr = *target_ptr;
-    }
+    memcpy(g_videoram, target_buffer, IMAGE_AREA_PIXELS * sizeof(uint32_t));
     update_display();
 
     free(target_buffer);
