@@ -525,7 +525,6 @@ static void run(void) {
                                             memcpy(effect, line + 1, 2);
                                             int effectnum = atoi(effect);
                                             memset(picture, 0, sizeof(picture));
-                                            memset(oldpicture, 0, sizeof(oldpicture));
                                             /* Track background color */
                                             if(effectnum == 1) bgcolor = COLOR_BLACK;
                                             if(effectnum == 2) bgcolor = COLOR_WHITE;
@@ -666,10 +665,18 @@ static void run(void) {
                                     memset(oldpicture, 0, sizeof(oldpicture));
                                     RestoreScreen();
                                 } else if (loadsave == 0) {
-                                    if (strcmp(picture, oldpicture) != 0 || compare_sprites() != 0) {
+                                    if (strcmp(picture, oldpicture) != 0) {
                                         LoadBackgroundImage(picture, bgpalette, g_background);
                                         memcpy(oldpicture, picture, sizeof(oldpicture));
                                         RestoreScreen();
+                                    } else {
+                                        if (compare_sprites() != 0) {
+                                            LoadBackgroundImage(picture, bgpalette, g_background);
+                                            memcpy(oldpicture, picture, sizeof(oldpicture));
+                                            RestoreScreen();
+                                        } else {
+                                            RestoreScreen();
+                                        }
                                     }
                                 } else {
                                     LoadBackgroundImage(picture, bgpalette, g_background);
@@ -1181,6 +1188,7 @@ static void run(void) {
                             snprintf(picture, sizeof(picture), "data\\%.*s", filelen, line + 3);
                             memcpy(oldpicture, picture, sizeof(oldpicture));
                             FxFadeIn(picture);
+                            SaveScreen();
                         }
                     }
 
