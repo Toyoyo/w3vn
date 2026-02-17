@@ -480,6 +480,7 @@ static void run(void) {
                                 savepointer = 0;
                                 willplaying = 0;
                                 spritecount = 0;
+                                uint32_t bgcolor = COLOR_WHITE;
                                 memset(picture, 0, sizeof(picture));
 
                                 /* On load (not rollback): stop music - will restart if 'P' is encountered */
@@ -519,12 +520,60 @@ static void run(void) {
                                     if (*line == 'X') {
                                         reset_cursprites();
                                         spritecount = 0;
-                                        /* X99 loads a new background image, track it like 'I' */
-                                        if (strlen(line) >= 4 && strncmp(line + 1, "99", 2) == 0) {
-                                            int filelen = (int)strlen(line) - 3;
-                                            if (filelen > 250) filelen = 250;
+                                        if (strlen(line) >= 3) {
+                                            char effect[3] = {0};
+                                            memcpy(effect, line + 1, 2);
+                                            int effectnum = atoi(effect);
                                             memset(picture, 0, sizeof(picture));
-                                            snprintf(picture, sizeof(picture), "data\\%.*s", filelen, line + 3);
+                                            memset(oldpicture, 0, sizeof(oldpicture));
+                                            /* Track background color */
+                                            if(effectnum == 1) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 2) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 3) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 4) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 5) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 6) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 7) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 8) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 9) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 10) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 11) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 12) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 13) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 14) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 15) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 16) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 17) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 18) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 19) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 20) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 21) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 22) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 23) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 24) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 25) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 26) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 27) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 28) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 29) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 30) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 31) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 32) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 33) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 34) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 35) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 36) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 37) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 38) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 39) bgcolor = COLOR_WHITE;
+                                            if(effectnum == 40) bgcolor = COLOR_BLACK;
+                                            if(effectnum == 98) bgcolor = COLOR_BLACK;
+                                            /* X99 loads a new background image, track it like 'I' */
+                                            if(effectnum == 99 && strlen(line) >= 4) {
+                                                int filelen = (int)strlen(line) - 3;
+                                                if (filelen > 250) filelen = 250;
+                                                snprintf(picture, sizeof(picture), "data\\%.*s", filelen, line + 3);
+                                            }
                                         }
                                     }
 
@@ -613,7 +662,7 @@ static void run(void) {
 
                                 /* Load background */
                                 if (picture[0] == '\0') {
-                                    memset(g_background, 0xFF, IMAGE_AREA_PIXELS * sizeof(uint32_t));
+                                    for (int _i = 0; _i < IMAGE_AREA_PIXELS; _i++) g_background[_i] = bgcolor;
                                     memset(oldpicture, 0, sizeof(oldpicture));
                                     RestoreScreen();
                                 } else if (loadsave == 0) {
@@ -1130,6 +1179,7 @@ static void run(void) {
                             if (filelen > 250) filelen = 250;
                             memset(picture, 0, sizeof(picture));
                             snprintf(picture, sizeof(picture), "data\\%.*s", filelen, line + 3);
+                            memcpy(oldpicture, picture, sizeof(oldpicture));
                             FxFadeIn(picture);
                         }
                     }
