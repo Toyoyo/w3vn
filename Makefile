@@ -6,7 +6,7 @@ ZLIB=./deps/zlib-1.3.1
 PNG=./deps/libpng-1.6.54
 
 CC=wcl386
-CFLAGS=-bt=nt -l=nt_win -za99 -I$(ZLIB) -I$(PNG)
+CFLAGS=-bt=nt -l=nt_win -za99 -ox -I$(ZLIB) -I$(PNG)
 WRC=wrc
 
 # VASM PARAMETERS

@@ -4,7 +4,7 @@
 ZLIB = ../zlib-1.3.1
 
 CC = wcc386
-CFLAGS = -w4 -e25 -zq -otexan -d1 -6r -bt=nt -mf -i=$(ZLIB)
+CFLAGS = -w4 -e25 -zq -otexan -d1 -6r -bt=nt -mf -ox -i=$(ZLIB)
 
 LIBR = wlib
 LIBFLAGS = -b -c -n -q -p=512
