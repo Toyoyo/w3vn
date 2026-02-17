@@ -1550,11 +1550,8 @@ static void FxFadeIn(const char *filename) {
     if (!target_buffer) return;
 
     /* Load the target image */
-    char full_path[260];
-    snprintf(full_path, sizeof(full_path), "data\\%s", filename);
-
     uint8_t temp_palette[32];
-    if (LoadBackgroundImage(full_path, temp_palette, target_buffer) != 0) {
+    if (LoadBackgroundImage(filename, temp_palette, target_buffer) != 0) {
         free(target_buffer);
         return;
     }

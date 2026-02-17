@@ -516,6 +516,18 @@ static void run(void) {
                                         spritecount = 0;
                                     }
 
+                                    if (*line == 'X') {
+                                        reset_cursprites();
+                                        spritecount = 0;
+                                        /* X99 loads a new background image, track it like 'I' */
+                                        if (strlen(line) >= 4 && strncmp(line + 1, "99", 2) == 0) {
+                                            int filelen = (int)strlen(line) - 3;
+                                            if (filelen > 250) filelen = 250;
+                                            memset(picture, 0, sizeof(picture));
+                                            snprintf(picture, sizeof(picture), "data\\%.*s", filelen, line + 3);
+                                        }
+                                    }
+
                                     if (*line == 'A') {
                                         if (strlen(line) >= 8 && spritecount < 256) {
                                             int filelen = (int)strlen(line) - 7;
@@ -1114,17 +1126,17 @@ static void run(void) {
                     if (effectnum == 98) FxFadeOut();
                     if (effectnum == 99) {
                         if (strlen(line) >= 4) {
-                            char fadein_file[260];
                             int filelen = (int)strlen(line) - 3;
                             if (filelen > 250) filelen = 250;
-                            memset(fadein_file, 0, sizeof(fadein_file));
-                            memcpy(fadein_file, line + 3, filelen);
-                            FxFadeIn(fadein_file);
+                            memset(picture, 0, sizeof(picture));
+                            snprintf(picture, sizeof(picture), "data\\%.*s", filelen, line + 3);
+                            FxFadeIn(picture);
                         }
                     }
 
                     FlushMessages();
                     reset_cursprites();
+                    spritecount = 0;
                     g_effectrunning = 0;
                     g_lastkey = 0;  /* Clear any key pressed during effect */
                     g_ignoreclick = 0;
