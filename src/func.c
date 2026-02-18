@@ -1322,7 +1322,7 @@ static void FxVWipeDown(uint32_t color) {
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
-    update_display();
+    if (g_running) update_display();
 }
 
 static void FxVWipeUp(uint32_t color) {
@@ -1333,7 +1333,7 @@ static void FxVWipeUp(uint32_t color) {
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
-    update_display();
+    if (g_running) update_display();
 }
 
 static void FxVWipeMidIn(uint32_t color) {
@@ -1346,7 +1346,7 @@ static void FxVWipeMidIn(uint32_t color) {
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
-    update_display();
+    if (g_running) update_display();
 }
 
 static void FxVWipeMidOut(uint32_t color) {
@@ -1359,7 +1359,7 @@ static void FxVWipeMidOut(uint32_t color) {
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
-    update_display();
+    if (g_running) update_display();
 }
 
 static void FxHWipeRight(uint32_t color) {
@@ -1376,7 +1376,7 @@ static void FxHWipeRight(uint32_t color) {
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
-    update_display();
+    if (g_running) update_display();
 }
 
 static void FxHWipeLeft(uint32_t color) {
@@ -1393,7 +1393,7 @@ static void FxHWipeLeft(uint32_t color) {
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
-    update_display();
+    if (g_running) update_display();
 }
 
 static void FxHWipeMidIn(uint32_t color) {
@@ -1411,7 +1411,7 @@ static void FxHWipeMidIn(uint32_t color) {
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
-    update_display();
+    if (g_running) update_display();
 }
 
 static void FxHWipeMidOut(uint32_t color) {
@@ -1429,7 +1429,7 @@ static void FxHWipeMidOut(uint32_t color) {
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
-    update_display();
+    if (g_running) update_display();
 }
 
 /* Fill a 16-pixel wide block at position (bx*16, y) */
@@ -1485,7 +1485,7 @@ static void FxCircleOut(uint32_t color) {
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
-    update_display();
+    if (g_running) update_display();
 }
 
 static void FxCircleIn(uint32_t color) {
@@ -1532,7 +1532,7 @@ static void FxCircleIn(uint32_t color) {
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
-    update_display();
+    if (g_running) update_display();
 }
 
 /* Fade the image area to black in 20 steps over 2 seconds */
@@ -1571,9 +1571,11 @@ static void FxFadeOut(void) {
     free(original);
 
     /* Ensure final state is pure black */
-    for (uint32_t *ptr = g_videoram; ptr < g_videoram + IMAGE_AREA_PIXELS; ptr++)
-        *ptr = COLOR_BLACK;
-    update_display();
+    if (g_running) {
+        for (uint32_t *ptr = g_videoram; ptr < g_videoram + IMAGE_AREA_PIXELS; ptr++)
+            *ptr = COLOR_BLACK;
+        update_display();
+    }
 }
 
 /* Fade from black to an image in 20 steps over 2 seconds */
@@ -1620,8 +1622,10 @@ static void FxFadeIn(const char *filename) {
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
 
     /* Ensure final state matches target image */
-    memcpy(g_videoram, target_buffer, IMAGE_AREA_PIXELS * sizeof(uint32_t));
-    update_display();
+    if (g_running) {
+        memcpy(g_videoram, target_buffer, IMAGE_AREA_PIXELS * sizeof(uint32_t));
+        update_display();
+    }
 
     free(target_buffer);
 }
