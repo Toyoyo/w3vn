@@ -1274,16 +1274,13 @@ static void DispEsc(void) {
     update_display();
 }
 
-/* Delay function compatible with Win32s
- * Uses timeGetTime() from winmm.dll for ~1ms resolution */
-static void FxDelay(DWORD ms) {
-    DWORD start, elapsed;
+/* Wait until an absolute target time (from timeGetTime()).
+ * If target is already in the past, returns immediately.
+ * Uses signed comparison to handle DWORD wraparound. */
+static void FxDelayUntil(DWORD target) {
     MSG msg;
 
-    start = timeGetTime();
-
     while (g_running) {
-        /* Pump messages to keep window responsive */
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (ConfigDialogMessage(&msg))
                 continue;
@@ -1291,10 +1288,8 @@ static void FxDelay(DWORD ms) {
             DispatchMessage(&msg);
         }
 
-        elapsed = timeGetTime() - start;
-        if (elapsed >= ms) {
+        if ((int)(timeGetTime() - target) >= 0)
             break;
-        }
     }
 }
 
@@ -1316,10 +1311,12 @@ static void FillRows(int y, int count, uint32_t color) {
 
 /* Screen transition effects */
 static void FxVWipeDown(uint32_t color) {
+    DWORD effect_start = timeGetTime();
+    int step = 0;
     SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int i = 0; i < 320; i += 8) {
         FillRows(i, 8, color);
-        FxDelay(15);
+        FxDelayUntil(effect_start + (DWORD)(++step * 15));
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
@@ -1327,10 +1324,12 @@ static void FxVWipeDown(uint32_t color) {
 }
 
 static void FxVWipeUp(uint32_t color) {
+    DWORD effect_start = timeGetTime();
+    int step = 0;
     SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int i = 312; i >= 0; i -= 8) {
         FillRows(i, 8, color);
-        FxDelay(15);
+        FxDelayUntil(effect_start + (DWORD)(++step * 15));
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
@@ -1339,11 +1338,13 @@ static void FxVWipeUp(uint32_t color) {
 
 static void FxVWipeMidIn(uint32_t color) {
     /* Wipe from edges (0 and 319) toward center (160) */
+    DWORD effect_start = timeGetTime();
+    int step = 0;
     SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int i = 0; i < 160; i += 8) {
         FillRows(i, 8, color);                /* Top edge moving down */
         FillRows(312 - i, 8, color);          /* Bottom edge moving up */
-        FxDelay(15);
+        FxDelayUntil(effect_start + (DWORD)(++step * 15));
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
@@ -1352,11 +1353,13 @@ static void FxVWipeMidIn(uint32_t color) {
 
 static void FxVWipeMidOut(uint32_t color) {
     /* Wipe from center (160) toward edges */
+    DWORD effect_start = timeGetTime();
+    int step = 0;
     SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int i = 0; i < 160; i += 8) {
         FillRows(160 + i, 8, color);          /* Center moving down */
         FillRows(152 - i, 8, color);          /* Center moving up */
-        FxDelay(15);
+        FxDelayUntil(effect_start + (DWORD)(++step * 15));
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
@@ -1365,6 +1368,8 @@ static void FxVWipeMidOut(uint32_t color) {
 
 static void FxHWipeRight(uint32_t color) {
     /* Wipe 32 pixels at a time for speed */
+    DWORD effect_start = timeGetTime();
+    int step = 0;
     SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int col = 0; col < SCREEN_WIDTH; col += 32) {
         for (int line = 0; line < 320; line++) {
@@ -1373,7 +1378,7 @@ static void FxHWipeRight(uint32_t color) {
                 row[p] = color;
             }
         }
-        FxDelay(15);
+        FxDelayUntil(effect_start + (DWORD)(++step * 15));
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
@@ -1382,6 +1387,8 @@ static void FxHWipeRight(uint32_t color) {
 
 static void FxHWipeLeft(uint32_t color) {
     /* Wipe 32 pixels at a time for speed */
+    DWORD effect_start = timeGetTime();
+    int step = 0;
     SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int col = SCREEN_WIDTH - 32; col >= 0; col -= 32) {
         for (int line = 0; line < 320; line++) {
@@ -1390,7 +1397,7 @@ static void FxHWipeLeft(uint32_t color) {
                 row[p] = color;
             }
         }
-        FxDelay(15);
+        FxDelayUntil(effect_start + (DWORD)(++step * 15));
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
@@ -1399,6 +1406,8 @@ static void FxHWipeLeft(uint32_t color) {
 
 static void FxHWipeMidIn(uint32_t color) {
     /* 64 pixels at a time (32 from each side) */
+    DWORD effect_start = timeGetTime();
+    int step = 0;
     SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int col = 0; col < SCREEN_WIDTH / 2; col += 32) {
         for (int line = 0; line < 320; line++) {
@@ -1408,7 +1417,7 @@ static void FxHWipeMidIn(uint32_t color) {
                 row[SCREEN_WIDTH - 1 - col - p] = color;
             }
         }
-        FxDelay(15);
+        FxDelayUntil(effect_start + (DWORD)(++step * 15));
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
@@ -1417,6 +1426,8 @@ static void FxHWipeMidIn(uint32_t color) {
 
 static void FxHWipeMidOut(uint32_t color) {
     /* 64 pixels at a time (32 from center to each side) */
+    DWORD effect_start = timeGetTime();
+    int step = 0;
     SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int col = 0; col < SCREEN_WIDTH / 2; col += 32) {
         for (int line = 0; line < 320; line++) {
@@ -1426,7 +1437,7 @@ static void FxHWipeMidOut(uint32_t color) {
                 row[SCREEN_WIDTH / 2 + col + p] = color;
             }
         }
-        FxDelay(15);
+        FxDelayUntil(effect_start + (DWORD)(++step * 15));
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
@@ -1446,6 +1457,8 @@ static void FxCircleOut(uint32_t color) {
     int bcx = 20;
     int bcy = 5;
 
+    DWORD effect_start = timeGetTime();
+    int step = 0;
     SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     /* Process 3 radii at a time for speed */
     for (int r = 0; r <= 23; r += 3) {
@@ -1482,7 +1495,7 @@ static void FxCircleOut(uint32_t color) {
                 }
             }
         }
-        FxDelay(40);
+        FxDelayUntil(effect_start + (DWORD)(++step * 40));
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
@@ -1493,6 +1506,8 @@ static void FxCircleIn(uint32_t color) {
     int bcx = 20;
     int bcy = 5;
 
+    DWORD effect_start = timeGetTime();
+    int step = 0;
     SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     /* Process 3 radii at a time for speed */
     for (int r = 23; r >= 0; r -= 3) {
@@ -1529,7 +1544,7 @@ static void FxCircleIn(uint32_t color) {
                 }
             }
         }
-        FxDelay(40);
+        FxDelayUntil(effect_start + (DWORD)(++step * 40));
         if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
@@ -1544,6 +1559,7 @@ static void FxFadeOut(void) {
 
     memcpy(original, g_videoram, IMAGE_AREA_PIXELS * sizeof(uint32_t));
 
+    DWORD effect_start = timeGetTime();
     SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
 
     /* Fade steps: blend original pixels towards black */
@@ -1564,7 +1580,7 @@ static void FxFadeOut(void) {
                  | lut[pixel & 0xFF];
         }
 
-        FxDelay(50);
+        FxDelayUntil(effect_start + (DWORD)(step * 50));
         if (!g_running) break;
     }
 
@@ -1596,6 +1612,7 @@ static void FxFadeIn(const char *filename) {
         *ptr = COLOR_BLACK;
     update_display();
 
+    DWORD effect_start = timeGetTime();
     SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
 
     /* Fade steps: blend from black towards target image */
@@ -1616,7 +1633,7 @@ static void FxFadeIn(const char *filename) {
                  | lut[pixel & 0xFF];
         }
 
-        FxDelay(50);
+        FxDelayUntil(effect_start + (DWORD)(step * 50));
         if (!g_running) break;
     }
 
