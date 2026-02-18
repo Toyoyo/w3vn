@@ -959,6 +959,7 @@ static void update_display(void) {
                 FillRect(hdc, &bar, blackBrush);
             }
 
+            SetStretchBltMode(hdc, COLORONCOLOR);
             StretchDIBits(hdc, dest_x, image_dest_y, dest_w, image_scaled_h,
                           0, text_h, SCREEN_WIDTH, image_h,
                           flipped, (BITMAPINFO *)&bmi, DIB_RGB_COLORS, SRCCOPY);
