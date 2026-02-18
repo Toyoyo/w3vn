@@ -1319,6 +1319,7 @@ static void FxVWipeDown(uint32_t color) {
     for (int i = 0; i < 320; i += 8) {
         FillRows(i, 8, color);
         FxDelay(15);
+        if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
     update_display();
@@ -1329,6 +1330,7 @@ static void FxVWipeUp(uint32_t color) {
     for (int i = 312; i >= 0; i -= 8) {
         FillRows(i, 8, color);
         FxDelay(15);
+        if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
     update_display();
@@ -1341,6 +1343,7 @@ static void FxVWipeMidIn(uint32_t color) {
         FillRows(i, 8, color);                /* Top edge moving down */
         FillRows(312 - i, 8, color);          /* Bottom edge moving up */
         FxDelay(15);
+        if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
     update_display();
@@ -1353,6 +1356,7 @@ static void FxVWipeMidOut(uint32_t color) {
         FillRows(160 + i, 8, color);          /* Center moving down */
         FillRows(152 - i, 8, color);          /* Center moving up */
         FxDelay(15);
+        if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
     update_display();
@@ -1369,6 +1373,7 @@ static void FxHWipeRight(uint32_t color) {
             }
         }
         FxDelay(15);
+        if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
     update_display();
@@ -1385,6 +1390,7 @@ static void FxHWipeLeft(uint32_t color) {
             }
         }
         FxDelay(15);
+        if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
     update_display();
@@ -1402,6 +1408,7 @@ static void FxHWipeMidIn(uint32_t color) {
             }
         }
         FxDelay(15);
+        if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
     update_display();
@@ -1419,6 +1426,7 @@ static void FxHWipeMidOut(uint32_t color) {
             }
         }
         FxDelay(15);
+        if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
     update_display();
@@ -1474,6 +1482,7 @@ static void FxCircleOut(uint32_t color) {
             }
         }
         FxDelay(40);
+        if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
     update_display();
@@ -1520,6 +1529,7 @@ static void FxCircleIn(uint32_t color) {
             }
         }
         FxDelay(40);
+        if (!g_running) break;
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
     update_display();
@@ -1554,6 +1564,7 @@ static void FxFadeOut(void) {
         }
 
         FxDelay(50);
+        if (!g_running) break;
     }
 
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
@@ -1603,6 +1614,7 @@ static void FxFadeIn(const char *filename) {
         }
 
         FxDelay(50);
+        if (!g_running) break;
     }
 
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
