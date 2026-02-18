@@ -16,7 +16,7 @@ OBJS =      adler32.o  compress.o crc32.o   deflate.o    &
 
 CC       = wcc386
 LINKER   = wcl386
-CFLAGS   = -zq -mf -3r -fp3 -s -bt=nt -oilrtfm -fr=nul -wx
+CFLAGS   = -zq -mf -3r -fp3 -s -bt=nt -oilrtfm -fr=nul -wx -ox
 ZLIB_LIB = zlib_f.lib
 
 .c.o:
