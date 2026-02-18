@@ -1315,43 +1315,48 @@ static void FillRows(int y, int count, uint32_t color) {
 
 /* Screen transition effects */
 static void FxVWipeDown(uint32_t color) {
+    SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int i = 0; i < 320; i += 8) {
         FillRows(i, 8, color);
-        update_display();
         FxDelay(15);
     }
+    KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
 }
 
 static void FxVWipeUp(uint32_t color) {
+    SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int i = 312; i >= 0; i -= 8) {
         FillRows(i, 8, color);
-        update_display();
         FxDelay(15);
     }
+    KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
 }
 
 static void FxVWipeMidIn(uint32_t color) {
     /* Wipe from edges (0 and 319) toward center (160) */
+    SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int i = 0; i < 160; i += 8) {
         FillRows(i, 8, color);                /* Top edge moving down */
         FillRows(312 - i, 8, color);          /* Bottom edge moving up */
-        update_display();
         FxDelay(15);
     }
+    KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
 }
 
 static void FxVWipeMidOut(uint32_t color) {
     /* Wipe from center (160) toward edges */
+    SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int i = 0; i < 160; i += 8) {
         FillRows(160 + i, 8, color);          /* Center moving down */
         FillRows(152 - i, 8, color);          /* Center moving up */
-        update_display();
         FxDelay(15);
     }
+    KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
 }
 
 static void FxHWipeRight(uint32_t color) {
     /* Wipe 32 pixels at a time for speed */
+    SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int col = 0; col < SCREEN_WIDTH; col += 32) {
         for (int line = 0; line < 320; line++) {
             uint32_t *row = g_videoram + line * SCREEN_WIDTH + col;
@@ -1359,13 +1364,14 @@ static void FxHWipeRight(uint32_t color) {
                 row[p] = color;
             }
         }
-        update_display();
         FxDelay(15);
     }
+    KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
 }
 
 static void FxHWipeLeft(uint32_t color) {
     /* Wipe 32 pixels at a time for speed */
+    SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int col = SCREEN_WIDTH - 32; col >= 0; col -= 32) {
         for (int line = 0; line < 320; line++) {
             uint32_t *row = g_videoram + line * SCREEN_WIDTH + col;
@@ -1373,13 +1379,14 @@ static void FxHWipeLeft(uint32_t color) {
                 row[p] = color;
             }
         }
-        update_display();
         FxDelay(15);
     }
+    KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
 }
 
 static void FxHWipeMidIn(uint32_t color) {
     /* 64 pixels at a time (32 from each side) */
+    SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int col = 0; col < SCREEN_WIDTH / 2; col += 32) {
         for (int line = 0; line < 320; line++) {
             uint32_t *row = g_videoram + line * SCREEN_WIDTH;
@@ -1388,13 +1395,14 @@ static void FxHWipeMidIn(uint32_t color) {
                 row[SCREEN_WIDTH - 1 - col - p] = color;
             }
         }
-        update_display();
         FxDelay(15);
     }
+    KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
 }
 
 static void FxHWipeMidOut(uint32_t color) {
     /* 64 pixels at a time (32 from center to each side) */
+    SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     for (int col = 0; col < SCREEN_WIDTH / 2; col += 32) {
         for (int line = 0; line < 320; line++) {
             uint32_t *row = g_videoram + line * SCREEN_WIDTH;
@@ -1403,9 +1411,9 @@ static void FxHWipeMidOut(uint32_t color) {
                 row[SCREEN_WIDTH / 2 + col + p] = color;
             }
         }
-        update_display();
         FxDelay(15);
     }
+    KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
 }
 
 /* Fill a 16-pixel wide block at position (bx*16, y) */
@@ -1421,6 +1429,7 @@ static void FxCircleOut(uint32_t color) {
     int bcx = 20;
     int bcy = 5;
 
+    SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     /* Process 3 radii at a time for speed */
     for (int r = 0; r <= 23; r += 3) {
         int r_end = (r + 2 <= 23) ? r + 2 : 23;
@@ -1456,15 +1465,16 @@ static void FxCircleOut(uint32_t color) {
                 }
             }
         }
-        update_display();
         FxDelay(40);
     }
+    KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
 }
 
 static void FxCircleIn(uint32_t color) {
     int bcx = 20;
     int bcy = 5;
 
+    SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
     /* Process 3 radii at a time for speed */
     for (int r = 23; r >= 0; r -= 3) {
         int r2 = r * r;
@@ -1500,9 +1510,9 @@ static void FxCircleIn(uint32_t color) {
                 }
             }
         }
-        update_display();
         FxDelay(40);
     }
+    KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
 }
 
 /* Fade the image area to black in 20 steps over 2 seconds */
@@ -1512,6 +1522,8 @@ static void FxFadeOut(void) {
     if (!original) return;
 
     memcpy(original, g_videoram, IMAGE_AREA_PIXELS * sizeof(uint32_t));
+
+    SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
 
     /* Fade steps: blend original pixels towards black */
     for (int step = 1; step <= steps; step++) {
@@ -1531,16 +1543,15 @@ static void FxFadeOut(void) {
                  | lut[pixel & 0xFF];
         }
 
-        update_display();
         FxDelay(50);
     }
 
+    KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
     free(original);
 
     /* Ensure final state is pure black */
-    for (uint32_t *ptr = g_videoram; ptr < g_videoram + IMAGE_AREA_PIXELS; ptr++) {
+    for (uint32_t *ptr = g_videoram; ptr < g_videoram + IMAGE_AREA_PIXELS; ptr++)
         *ptr = COLOR_BLACK;
-    }
     update_display();
 }
 
@@ -1557,10 +1568,11 @@ static void FxFadeIn(const char *filename) {
     }
 
     /* Start with black screen */
-    for (uint32_t *ptr = g_videoram; ptr < g_videoram + IMAGE_AREA_PIXELS; ptr++) {
+    for (uint32_t *ptr = g_videoram; ptr < g_videoram + IMAGE_AREA_PIXELS; ptr++)
         *ptr = COLOR_BLACK;
-    }
     update_display();
+
+    SetTimer(g_hwnd, DEFER_RENDER_TIME_ID, 15, (TIMERPROC) Timer0Proc);
 
     /* Fade steps: blend from black towards target image */
     const int steps = 20;
@@ -1580,9 +1592,10 @@ static void FxFadeIn(const char *filename) {
                  | lut[pixel & 0xFF];
         }
 
-        update_display();
         FxDelay(50);
     }
+
+    KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
 
     /* Ensure final state matches target image */
     memcpy(g_videoram, target_buffer, IMAGE_AREA_PIXELS * sizeof(uint32_t));
