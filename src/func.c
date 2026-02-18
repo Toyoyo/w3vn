@@ -1321,6 +1321,7 @@ static void FxVWipeDown(uint32_t color) {
         FxDelay(15);
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
+    update_display();
 }
 
 static void FxVWipeUp(uint32_t color) {
@@ -1330,6 +1331,7 @@ static void FxVWipeUp(uint32_t color) {
         FxDelay(15);
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
+    update_display();
 }
 
 static void FxVWipeMidIn(uint32_t color) {
@@ -1341,6 +1343,7 @@ static void FxVWipeMidIn(uint32_t color) {
         FxDelay(15);
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
+    update_display();
 }
 
 static void FxVWipeMidOut(uint32_t color) {
@@ -1352,6 +1355,7 @@ static void FxVWipeMidOut(uint32_t color) {
         FxDelay(15);
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
+    update_display();
 }
 
 static void FxHWipeRight(uint32_t color) {
@@ -1367,6 +1371,7 @@ static void FxHWipeRight(uint32_t color) {
         FxDelay(15);
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
+    update_display();
 }
 
 static void FxHWipeLeft(uint32_t color) {
@@ -1382,6 +1387,7 @@ static void FxHWipeLeft(uint32_t color) {
         FxDelay(15);
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
+    update_display();
 }
 
 static void FxHWipeMidIn(uint32_t color) {
@@ -1398,6 +1404,7 @@ static void FxHWipeMidIn(uint32_t color) {
         FxDelay(15);
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
+    update_display();
 }
 
 static void FxHWipeMidOut(uint32_t color) {
@@ -1414,6 +1421,7 @@ static void FxHWipeMidOut(uint32_t color) {
         FxDelay(15);
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
+    update_display();
 }
 
 /* Fill a 16-pixel wide block at position (bx*16, y) */
@@ -1468,6 +1476,7 @@ static void FxCircleOut(uint32_t color) {
         FxDelay(40);
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
+    update_display();
 }
 
 static void FxCircleIn(uint32_t color) {
@@ -1513,6 +1522,7 @@ static void FxCircleIn(uint32_t color) {
         FxDelay(40);
     }
     KillTimer(g_hwnd, DEFER_RENDER_TIME_ID);
+    update_display();
 }
 
 /* Fade the image area to black in 20 steps over 2 seconds */
