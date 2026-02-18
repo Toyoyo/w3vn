@@ -1281,7 +1281,7 @@ static void FxDelay(DWORD ms) {
 
     start = timeGetTime();
 
-    while (1) {
+    while (g_running) {
         /* Pump messages to keep window responsive */
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (ConfigDialogMessage(&msg))
