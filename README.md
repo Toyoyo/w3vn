@@ -185,6 +185,8 @@ Supported operands:
 
    You might want to load a black image beforehand (with 'I') for a better rollback rendering (there will be a slight delay between state restoration and video playback)
 
+   Also, resets sprites, but 'I' is expected after anyway.
+
    Compatibility notes: Like 'P', this uses MCI to play the video, requiring the correct codecs to be installed.
 
    For Windows 3.1/Win32s this mostly means outdated codecs like indeo/cinepak, but also mpeg1 via Compcore SoftPEG, available for example here: https://vetusware.com/download/CompCore%20SoftPEG%202.1/?id=14823 (Avoid the 2.2 version which is buggy), which should also work for Win9x though there might be better alternatives.
@@ -192,6 +194,22 @@ Supported operands:
    A note about wine: on Debian, the mpeg1 codecs are in the gstreamer1.0-plugins-bad package, which need to be installed for the i386 architecture
 
    It's worth noting that at least Windows 10 natively includes an mpeg1 decoder, so this format should be the most compatible one.
+
+* 'G' : Play a game
+
+   General syntax: ``G[gameid][register][target score][]arguments``
+
+   Only game '0' Is implemented, which is a C re-implementation of renpy-rhythm (https://github.com/RuolinZheng08/renpy-rhythm) which uses the same beatmaps.
+
+   Syntax is ``G0[register][target score][background image][music][beatmap]`` like in ``G010100test.png|test.wav|test.bea``
+
+   Meaning: Start the rythm gate with test.png as the background, play test.wav with test.bea as beatmap, use the register '1' to store success (1) or failure (2).
+
+   You can then use a 'B' line to compare: ``B11LSUCC``
+
+   Note the target score is a fixed value between 0000 and 9999.
+
+   Also, resets sprites, but 'I' is expected after anyway.
 
 * 'X' : Trigger a visual effect.
 

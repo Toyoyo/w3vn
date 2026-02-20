@@ -54,7 +54,11 @@ static int g_videoWidth = 0;
 static int g_videoHeight = 0;
 static HWND g_videoWindow = NULL;
 
+/* Function declarations */
+int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beatmap_path, int stride);
+
 #include "func.c"
+#include "rythm.c"
 
 /* Macros */
 #define RestoreScreen() memcpy(g_videoram, g_background, IMAGE_AREA_PIXELS * sizeof(uint32_t))
@@ -592,6 +596,21 @@ static void run(void) {
                                         }
                                     }
 
+                                    if (*line == 'M') {
+                                        reset_cursprites();
+                                        spritecount = 0;
+                                    }
+
+                                    if (*line == 'G') {
+                                        reset_cursprites();
+                                        spritecount = 0;
+                                        if (strlen(line) >= 7 && line[1] == '0') {
+                                            memset(musicfile, 0, sizeof(musicfile));
+                                            memset(oldmusicfile, 0, sizeof(oldmusicfile));
+                                            willplaying = 0;
+                                        }
+                                    }
+
                                     if (*line == 'P') {
                                         if (line[1] == 'S') {
                                             /* PS: Stop music */
@@ -850,6 +869,111 @@ static void run(void) {
                 }
             }
 
+            /* 'G': Play game */
+            if (*line == 'G') {
+                /* Format: G[game_id1][register1][score4][args] */
+                /* Example: G010010title.png|test.wav|test.bea */
+                reset_cursprites();
+                spritecount = 0;
+                RestoreScreen();
+                SaveScreen();
+                if (strlen(line) >= 7) {
+                    char game_s[2]     = {0};
+                    char register_s[2] = {0};
+                    char score_s[5]    = {0};
+                    game_s[0]     = line[1];
+                    register_s[0] = line[2];
+                    memcpy(score_s, line + 3, 4);
+
+                    int game_id        = atoi(game_s);
+                    int register_idx   = atoi(register_s);
+                    int threshold_score = atoi(score_s);
+                    int score = 0;
+
+                    if (game_id == 0) {
+                        /* Parse picture|audio|beatmap paths (rest of line) */
+                        char bg_path[260] = {0};
+                        char audio_path[260] = {0};
+                        char beatmap_path[260] = {0};
+                        int path_len = strlen(line) - 7;
+                        if (path_len > 0) {
+                            const char *args = line + 7;
+                            const char *sep1 = strchr(args, '|');
+                            if (sep1) {
+                                int bg_len = (int)(sep1 - args);
+                                if (bg_len > 250) bg_len = 250;
+                                snprintf(bg_path, sizeof(bg_path), "data\\%.*s", bg_len, args);
+                                const char *sep2 = strchr(sep1 + 1, '|');
+                                if (sep2) {
+                                    int audio_len = (int)(sep2 - (sep1 + 1));
+                                    if (audio_len > 250) audio_len = 250;
+                                    snprintf(audio_path, sizeof(audio_path), "data\\%.*s", audio_len, sep1 + 1);
+                                    int beatmap_len = (int)strlen(sep2 + 1);
+                                    if (beatmap_len > 250) beatmap_len = 250;
+                                    snprintf(beatmap_path, sizeof(beatmap_path), "data\\%.*s", beatmap_len, sep2 + 1);
+                                }
+                            }
+                        }
+
+                        if (bg_path[0] != '\0' && audio_path[0] != '\0' && beatmap_path[0] != '\0') {
+                            /* Stop music playing */
+                            if (isplaying) {
+                                StopMusic();
+                                isplaying = 0;
+                                memset(musicfile, 0, sizeof(musicfile));
+                                memset(oldmusicfile, 0, sizeof(oldmusicfile));
+                            }
+                            memset(picture, 0, sizeof(picture));
+                            memset(oldpicture, 0, sizeof(oldpicture));
+
+                            g_effectrunning = 1;
+                            RedrawBorder();
+                            update_display();
+
+                            score = PlayRhythmGame(bg_path, audio_path, beatmap_path, 3);
+                        }
+                    } /* game_id == 0 */
+
+                    /* Handle rollback if 'B' was pressed */
+                    if (score == -1 && savehistory_idx >= 2) {
+                        printf("Rolling back\r\n");
+                        save_linenb = savehistory[savehistory_idx - 2];
+                        savehistory[savehistory_idx - 1] = 0;
+                        savehistory_idx--;
+                        skipnexthistory = 1;
+                        backfromvideo = 1;
+
+                        memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
+                        locate(0, 337);
+                        RedrawBorder();
+                        print_string(" Rolling back...");
+                        update_display();
+                        goto seektoline;
+                    }
+
+                    /* Handle quit if user confirmed quit in-game */
+                    if (score == -2) {
+                        goto endprog;
+                    }
+
+                    /* Init failure — skip */
+                    if (score == -3) goto game_done;
+
+                    /* Set register based on score */
+                    if (register_idx >= 0 && register_idx < 10) {
+                        choicedata[register_idx] = (score >= threshold_score) ? 1 : 2;
+                    }
+                    game_done: ;
+                }
+
+                g_effectrunning = 0;
+                g_lastkey = 0;
+                g_ignoreclick = 0;
+                g_ignorerclick = 0;
+                RestoreScreen();
+                update_display();
+            }
+
             /* 'M': Play video in image area */
             if (*line == 'M') {
                 int filelen = (int)strlen(line) - 1;
@@ -860,8 +984,13 @@ static void run(void) {
                     MSG vmsg;
                     if (filelen > 250) filelen = 250;
                     snprintf(videofile, sizeof(videofile), "data\\%.*s", filelen, line + 1);
+
+                    reset_cursprites();
+                    spritecount = 0;
                     g_effectrunning = 1;
+                    RestoreScreen();
                     RedrawBorder();
+                    SaveScreen();
                     update_display();
 
                     /* Stop music playing and invalidate oldmusicfile in case of rollback */
@@ -902,10 +1031,11 @@ static void run(void) {
                                 /* Hide video child window */
                                 if (g_videoWindow) ShowWindow(g_videoWindow, SW_HIDE);
                                 g_effectrunning = 0;
-                                SaveScreen();
+                                uint32_t *qsave = (uint32_t *)malloc(IMAGE_AREA_PIXELS * sizeof(uint32_t));
+                                if (qsave) memcpy(qsave, g_videoram, IMAGE_AREA_PIXELS * sizeof(uint32_t));
                                 DispQuit();
                                 QuitMacro();
-                                RestoreScreen();
+                                if (qsave) { memcpy(g_videoram, qsave, IMAGE_AREA_PIXELS * sizeof(uint32_t)); free(qsave); }
                                 update_display();
                                 g_effectrunning = 1;
                                 /* Restore video child window position/size and show it */

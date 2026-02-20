@@ -38,4 +38,7 @@
 #define IMAGE_AREA_PIXELS (SCREEN_WIDTH * TEXT_AREA_START)
 #define TEXT_AREA_PIXELS (SCREEN_WIDTH * 80)
 
+/* Rhythm game function */
+int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beatmap_path, int stride);
+
 #endif /* FUNC_H */
