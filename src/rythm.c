@@ -197,6 +197,14 @@ static void rg_putc_big(int x, int y, char c, int scale, uint32_t fg) {
         }
     }
 }
+static void rg_putc_big_outlined(int x, int y, char c, int scale, uint32_t fg) {
+    int dx, dy;
+    for (dy = -1; dy <= 1; dy++)
+        for (dx = -1; dx <= 1; dx++)
+            if (dx != 0 || dy != 0)
+                rg_putc_big(x + dx, y + dy, c, scale, COLOR_BLACK);
+    rg_putc_big(x, y, c, scale, fg);
+}
 
 /* ── beatmap loader ──────────────────────────────────────────────────────── */
 /* stride: keep every Nth note (1 = all, 2 = every other, matching Ren'Py default) */
@@ -345,14 +353,14 @@ static void rg_render(RhythmGame *gm) {
         for (int i = 0; i < IMAGE_AREA_PIXELS; i++)
             g_videoram[i] = COLOR_BLACK;
 
-    /* Countdown: large white digit centred on screen */
+    /* Countdown: large white digit centred on screen, with 1px black outline */
     if (gm->countdown > 0) {
         char d;
         int scale = 6;
         int cw = 8 * scale, ch = 15 * scale;
         d = (char)('0' + gm->countdown);
-        rg_putc_big((SCREEN_WIDTH - cw) / 2, (TEXT_AREA_START - ch) / 2,
-                    d, scale, COLOR_WHITE);
+        rg_putc_big_outlined((SCREEN_WIDTH - cw) / 2, (TEXT_AREA_START - ch) / 2,
+                             d, scale, COLOR_WHITE);
         return;
     }
 
