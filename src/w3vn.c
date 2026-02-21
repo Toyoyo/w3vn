@@ -679,32 +679,41 @@ static void run(void) {
                                 }
 
                                 /* Load background */
+                                int restored = 0;
                                 if (picture[0] == '\0') {
                                     for (int _i = 0; _i < IMAGE_AREA_PIXELS; _i++) g_background[_i] = bgcolor;
                                     memset(oldpicture, 0, sizeof(oldpicture));
                                     RestoreScreen();
+                                    restored = 1;
                                 } else if (loadsave == 0) {
                                     if (strcmp(picture, oldpicture) != 0) {
                                         LoadBackgroundImage(picture, bgpalette, g_background);
                                         memcpy(oldpicture, picture, sizeof(oldpicture));
                                         RestoreScreen();
+                                        restored = 1;
                                     } else {
                                         if (compare_sprites() != 0) {
                                             LoadBackgroundImage(picture, bgpalette, g_background);
                                             memcpy(oldpicture, picture, sizeof(oldpicture));
                                             RestoreScreen();
+                                            restored = 1;
+                                        } else if (spritecount == 0) {
+                                            RestoreScreen();
                                         }
+                                        /* same picture, same sprites, spritecount > 0:
+                                         * g_videoram already shows the correct state */
                                     }
                                 } else {
                                     LoadBackgroundImage(picture, bgpalette, g_background);
                                     memcpy(oldpicture, picture, sizeof(oldpicture));
                                     RestoreScreen();
+                                    restored = 1;
                                 }
 
                                 charlines = 0;
 
                                 /* Display sprites */
-                                if (compare_sprites() != 0 || loadsave == 1 || backfromvideo == 1) {
+                                if (compare_sprites() != 0 || restored || backfromvideo == 1) {
                                     for (int sc = 0; sc < spritecount; sc++) {
                                         memset(spritefile, 0, sizeof(spritefile));
                                         snprintf(spritefile, sizeof(spritefile), "data\\%s", currentsprites[sc].file);
