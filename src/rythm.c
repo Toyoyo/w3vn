@@ -452,11 +452,15 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
             }
             if (msg.message == WM_KEYDOWN) {
                 switch (msg.wParam) {
-                    case VK_LEFT: case VK_UP: case VK_DOWN: case VK_RIGHT:
+                    case VK_LEFT: case 'A':
+                    case VK_UP: case 'S':
+                    case VK_DOWN: case VK_NUMPAD1:
+                    case VK_RIGHT: case VK_NUMPAD2:
                         if (gm.countdown == 0 && !gm.has_ended) {
-                            int track = (msg.wParam == VK_LEFT)  ? 0 :
-                                        (msg.wParam == VK_UP)    ? 1 :
-                                        (msg.wParam == VK_DOWN)  ? 2 : 3;
+                            int track = (msg.wParam == VK_LEFT  || msg.wParam == 'A')          ? 0 :
+                                        (msg.wParam == VK_UP    || msg.wParam == 'S')          ? 1 :
+                                        (msg.wParam == VK_DOWN  || msg.wParam == VK_NUMPAD1)   ? 2 :
+                                        /* VK_RIGHT, VK_NUMPAD2 */                               3;
                             float mt = (float)(int)(timeGetTime() - gm.music_start_time) / 1000.0f;
                             for (int i = 0; i < gm.num_notes; i++) {
                                 if (!gm.hit_status[i] && gm.track_indices[i] == track) {
