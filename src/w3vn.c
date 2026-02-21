@@ -693,8 +693,6 @@ static void run(void) {
                                             LoadBackgroundImage(picture, bgpalette, g_background);
                                             memcpy(oldpicture, picture, sizeof(oldpicture));
                                             RestoreScreen();
-                                        } else {
-                                            RestoreScreen();
                                         }
                                     }
                                 } else {
