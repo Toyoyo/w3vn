@@ -2075,7 +2075,7 @@ static int GetMasterVolume(void) {
                     mcd.cbDetails = sizeof(mcdu);
                     mcd.paDetails = &mcdu;
                     if (mixerGetControlDetails((HMIXEROBJ)hMixer, &mcd, MIXER_GETCONTROLDETAILSF_VALUE) == MMSYSERR_NOERROR) {
-                        pos = (mcdu.dwValue * 100) / mc.Bounds.dwMaximum;
+                        pos = (mcdu.dwValue * 100 + mc.Bounds.dwMaximum / 2) / mc.Bounds.dwMaximum;
                     }
                 }
             }
