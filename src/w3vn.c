@@ -615,7 +615,6 @@ static void run(void) {
                                         if (line[1] == 'S') {
                                             /* PS: Stop music */
                                             memset(musicfile, 0, sizeof(musicfile));
-                                            memset(oldmusicfile, 0, sizeof(oldmusicfile));
                                             willplaying = 0;
                                         } else {
                                             int filelen = (int)strlen(line) - 1;
