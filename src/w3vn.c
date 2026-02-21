@@ -606,7 +606,6 @@ static void run(void) {
                                         spritecount = 0;
                                         if (strlen(line) >= 8 && line[1] == '0') {
                                             memset(musicfile, 0, sizeof(musicfile));
-                                            memset(oldmusicfile, 0, sizeof(oldmusicfile));
                                             willplaying = 0;
                                         }
                                     }
@@ -904,6 +903,8 @@ static void run(void) {
                     int score = 0;
 
                     if (game_id == 0) {
+                        memset(musicfile, 0, sizeof(musicfile));
+                        memset(oldmusicfile, 0, sizeof(oldmusicfile));
                         /* Parse picture|audio|beatmap paths (rest of line) */
                         char bg_path[260] = {0};
                         char audio_path[260] = {0};
