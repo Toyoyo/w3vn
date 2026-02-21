@@ -604,7 +604,7 @@ static void run(void) {
                                     if (*line == 'G') {
                                         reset_cursprites();
                                         spritecount = 0;
-                                        if (strlen(line) >= 7 && line[1] == '0') {
+                                        if (strlen(line) >= 8 && line[1] == '0') {
                                             memset(musicfile, 0, sizeof(musicfile));
                                             memset(oldmusicfile, 0, sizeof(oldmusicfile));
                                             willplaying = 0;
@@ -878,8 +878,9 @@ static void run(void) {
 
             /* 'G': Play game */
             if (*line == 'G') {
-                /* Format: G[game_id1][register1][score4][args] */
-                /* Example: G010010title.png|test.wav|test.bea */
+                /* Format: G[game_id1][register1][stride1][score4][args] */
+                /* Example: G0100010test.png|test.wav|test.bea (stride=0) */
+                /* Example: G0130010test.png|test.wav|test.bea (stride=3) */
 
                 /* Reset sprites, redraw background, so we exit with a clean state */
                 reset_cursprites();
@@ -887,16 +888,19 @@ static void run(void) {
                 LoadBackgroundImage(picture, bgpalette, g_background);
                 RestoreScreen();
                 SaveScreen();
-                if (strlen(line) >= 7) {
+                if (strlen(line) >= 8) {
                     char game_s[2]     = {0};
                     char register_s[2] = {0};
+                    char stride_s[2]   = {0};
                     char score_s[5]    = {0};
                     game_s[0]     = line[1];
                     register_s[0] = line[2];
-                    memcpy(score_s, line + 3, 4);
+                    stride_s[0]   = line[3];
+                    memcpy(score_s, line + 4, 4);
 
                     int game_id        = atoi(game_s);
                     int register_idx   = atoi(register_s);
+                    int stride         = atoi(stride_s);
                     int threshold_score = atoi(score_s);
                     int score = 0;
 
@@ -905,9 +909,9 @@ static void run(void) {
                         char bg_path[260] = {0};
                         char audio_path[260] = {0};
                         char beatmap_path[260] = {0};
-                        int path_len = strlen(line) - 7;
+                        int path_len = strlen(line) - 8;
                         if (path_len > 0) {
-                            const char *args = line + 7;
+                            const char *args = line + 8;
                             const char *sep1 = strchr(args, '|');
                             if (sep1) {
                                 int bg_len = (int)(sep1 - args);
@@ -940,7 +944,7 @@ static void run(void) {
                             RedrawBorder();
                             update_display();
 
-                            score = PlayRhythmGame(bg_path, audio_path, beatmap_path, 3);
+                            score = PlayRhythmGame(bg_path, audio_path, beatmap_path, stride);
                         }
                     } /* game_id == 0 */
 

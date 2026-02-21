@@ -39,8 +39,14 @@ static int rg_isqrt(int n) {
 /* ── colours (BGRA) ─────────────────────────────────────────────────────── */
 #define COLOR_BLUE      0xFF4DC8FF   /* hit-zone bar (unfilled) */
 #define COLOR_DKBLUE    0xFF2A6E99   /* hit-zone bar (filled)   */
-#define COLOR_GREEN     0xFF43D35A   /* note fill              */
-#define COLOR_DKGREEN   0xFF2D8A3E   /* note dark outline      */
+#define COLOR_GREEN     0xFF43D35A   /* left arrow note         */
+#define COLOR_DKGREEN   0xFF2D8A3E   /* left arrow note outline */
+#define COLOR_RED       0xFFFF8080   /* up arrow note           */
+#define COLOR_DKRED     0xFF994C4C   /* up arrow note outline   */
+#define COLOR_LTBLUE    0xFF00A5FF   /* down arrow note (pastel blue) */
+#define COLOR_DKLTBLUE  0xFF006699   /* down arrow note outline     */
+#define COLOR_ORANGE    0xFFffC882   /* right arrow note (pastel orange) */
+#define COLOR_DKORANGE  0xFF98784E   /* right arrow note outline        */
 
 /* ── layout ─────────────────────────────────────────────────────────────── */
 #define NUM_TRACKS      4
@@ -146,8 +152,21 @@ static void rg_arrow(int cx, int cy, int track) {
 static void rg_draw_note(int track, int y_center, int is_large) {
     int r = is_large ? NOTE_RADIUS * 5 / 4 : NOTE_RADIUS;
     int x  = X_OFFSET + track * TRACK_SPACING;
-    rg_circle(x, y_center, r + 2, COLOR_DKGREEN);
-    rg_circle(x, y_center, r,     COLOR_GREEN);
+    uint32_t color, dkcolor;
+    switch (track) {
+        case 0: /* Left - green */
+            color = COLOR_GREEN; dkcolor = COLOR_DKGREEN; break;
+        case 1: /* Up - red */
+            color = COLOR_RED; dkcolor = COLOR_DKRED; break;
+        case 2: /* Down - blue */
+            color = COLOR_LTBLUE; dkcolor = COLOR_DKLTBLUE; break;
+        case 3: /* Right - orange */
+            color = COLOR_ORANGE; dkcolor = COLOR_DKORANGE; break;
+        default:
+            color = COLOR_GREEN; dkcolor = COLOR_DKGREEN; break;
+    }
+    rg_circle(x, y_center, r + 2, dkcolor);
+    rg_circle(x, y_center, r,     color);
     rg_arrow (x, y_center, track);
 }
 
