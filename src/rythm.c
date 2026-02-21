@@ -78,8 +78,10 @@ typedef struct {
     int        countdown;
     DWORD      countdown_start;
     uint32_t  *bg_pixels;    /* background image, NULL = black */
-    HMIDIOUT   midi_out;     /* for hit ding sound, NULL = unavailable */
-    DWORD      note_off_at;  /* when to send note-off (0 = none pending) */
+    HMIDIOUT   midi_out;     /* for hit ding sound (non-Wine), NULL = unavailable */
+    DWORD      note_off_at;  /* when to send CC120 All Sound Off (0 = none pending) */
+    UINT       mci_ding_id;  /* Wine: MCI MIDI device for hit ding */
+    char       ding_tmp[260];/* Wine: temp MIDI file path */
 } RhythmGame;
 
 /* ── PRNG ────────────────────────────────────────────────────────────────── */
@@ -349,13 +351,57 @@ static int rg_init(const char *bg, const char *audio, const char *bmap, int stri
     gm->countdown     = 3;
     gm->countdown_start = timeGetTime();
 
-    /* Open MIDI mapper for hit ding (GM ch1, Glockenspiel) */
+    /* Open MIDI for hit ding */
     gm->midi_out    = NULL;
     gm->note_off_at = 0;
-    if (midiOutOpen(&gm->midi_out, MIDI_MAPPER, 0, 0, CALLBACK_NULL) == MMSYSERR_NOERROR) {
-        /* CC7 (channel volume) + CC11 (expression) on ch10 to max */
-        midiOutShortMsg(gm->midi_out, 0x007F07B9);
-        midiOutShortMsg(gm->midi_out, 0x007F0BB9);
+    gm->mci_ding_id = 0;
+    gm->ding_tmp[0] = '\0';
+
+    if (IsWine()) {
+        /* Wine: midiOut doesn't route through FluidSynth; generate a tiny
+           MIDI file and keep an MCI mpegvideo device open for seek+replay */
+        static const unsigned char ding_mid[] = {
+            /* MThd: format 0, 1 track, 480 ticks/quarter */
+            0x4D,0x54,0x68,0x64, 0x00,0x00,0x00,0x06,
+            0x00,0x00, 0x00,0x01, 0x01,0xE0,
+            /* MTrk */
+            0x4D,0x54,0x72,0x6B, 0x00,0x00,0x00,0x14,
+            /* delta=0, tempo 500000us (120 BPM) */
+            0x00, 0xFF,0x51,0x03, 0x07,0xA1,0x20,
+            /* delta=0, note-on ch10 note49 vel127 */
+            0x00, 0x99,0x31,0x7F,
+            /* delta=480 ticks (500ms), note-off ch10 note49 vel0 */
+            0x83,0x60, 0x99,0x31,0x00,
+            /* delta=0, end of track */
+            0x00, 0xFF,0x2F,0x00
+        };
+        char tmpdir[260];
+        GetTempPathA(sizeof(tmpdir), tmpdir);
+        snprintf(gm->ding_tmp, sizeof(gm->ding_tmp), "%sding_rythm.mid", tmpdir);
+        FILE *f = fopen(gm->ding_tmp, "wb");
+        if (f) {
+            fwrite(ding_mid, 1, sizeof(ding_mid), f);
+            fclose(f);
+            char fullpath[260];
+            if (GetFullPathNameA(gm->ding_tmp, sizeof(fullpath), fullpath, NULL) == 0)
+                strncpy(fullpath, gm->ding_tmp, 259);
+            MCI_OPEN_PARMS mo;
+            memset(&mo, 0, sizeof mo);
+            mo.lpstrElementName = fullpath;
+            mo.lpstrAlias       = "ding_midi";
+            mo.lpstrDeviceType  = "mpegvideo";
+            if (mciSendCommand(0, MCI_OPEN,
+                    MCI_OPEN_ELEMENT | MCI_OPEN_ALIAS | MCI_OPEN_TYPE,
+                    (DWORD)(LPVOID)&mo) == 0)
+                gm->mci_ding_id = mo.wDeviceID;
+        }
+    } else {
+        /* Windows: midiOut works fine */
+        if (midiOutOpen(&gm->midi_out, MIDI_MAPPER, 0, 0, CALLBACK_NULL) == MMSYSERR_NOERROR) {
+            /* CC7 (channel volume) + CC11 (expression) on ch10 to max */
+            midiOutShortMsg(gm->midi_out, 0x007F07B9);
+            midiOutShortMsg(gm->midi_out, 0x007F0BB9);
+        }
     }
 
     return 0;
@@ -367,8 +413,13 @@ static void rg_cleanup(RhythmGame *gm) {
         mciSendCommand(gm->mci_device_id, MCI_CLOSE, 0, 0);
         gm->mci_device_id = 0;
     }
+    if (gm->mci_ding_id) {
+        mciSendCommand(gm->mci_ding_id, MCI_STOP,  0, 0);
+        mciSendCommand(gm->mci_ding_id, MCI_CLOSE, 0, 0);
+        gm->mci_ding_id = 0;
+        if (gm->ding_tmp[0]) DeleteFileA(gm->ding_tmp);
+    }
     if (gm->midi_out) {
-        /* Send any pending note-off before closing */
         if (gm->note_off_at)
             midiOutShortMsg(gm->midi_out, 0x000078B9); /* CC120 (All Sound Off) ch10 */
         midiOutClose(gm->midi_out);
@@ -486,7 +537,14 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
                                     if (rg_fabsf(gm.onset_times[i] - mt) < HIT_THRESHOLD/1000.0f) {
                                         gm.hit_status[i] = 1;
                                         gm.num_hits++;
-                                        if (gm.midi_out) {
+                                        if (IsWine()) {
+                                            if (gm.mci_ding_id) {
+                                                MCI_SEEK_PARMS sp; memset(&sp, 0, sizeof sp);
+                                                mciSendCommand(gm.mci_ding_id, MCI_SEEK, MCI_SEEK_TO_START, (DWORD)(LPVOID)&sp);
+                                                MCI_PLAY_PARMS pp; memset(&pp, 0, sizeof pp);
+                                                mciSendCommand(gm.mci_ding_id, MCI_PLAY, 0, (DWORD)(LPVOID)&pp);
+                                            }
+                                        } else if (gm.midi_out) {
                                             /* GM ch10 (0x99) note 49=0x31 (Crash Cymbal 1), vel 127 */
                                             midiOutShortMsg(gm.midi_out, 0x007F3199);
                                             gm.note_off_at = timeGetTime() + 500;
