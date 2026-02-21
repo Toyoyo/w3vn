@@ -1273,8 +1273,10 @@ static void run(void) {
                     char effect[3] = {0};
                     memcpy(effect, line + 1, 2);
                     int effectnum = atoi(effect);
-
                     g_effectrunning = 1;
+
+                    // Effects 1-40 and 98 invalidate the current picture
+                    if(effectnum != 99) memset(picture, 0, sizeof(picture));
 
                     if (effectnum == 1) FxVWipeDown(COLOR_BLACK);
                     if (effectnum == 2) FxVWipeDown(COLOR_WHITE);
