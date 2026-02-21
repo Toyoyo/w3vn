@@ -880,8 +880,11 @@ static void run(void) {
             if (*line == 'G') {
                 /* Format: G[game_id1][register1][score4][args] */
                 /* Example: G010010title.png|test.wav|test.bea */
+
+                /* Reset sprites, redraw background, so we exit with a clean state */
                 reset_cursprites();
                 spritecount = 0;
+                LoadBackgroundImage(picture, bgpalette, g_background);
                 RestoreScreen();
                 SaveScreen();
                 if (strlen(line) >= 7) {
@@ -992,13 +995,15 @@ static void run(void) {
                     if (filelen > 250) filelen = 250;
                     snprintf(videofile, sizeof(videofile), "data\\%.*s", filelen, line + 1);
 
+                    /* Reset sprites, redraw background, so we exit with a clean state */
                     reset_cursprites();
                     spritecount = 0;
-                    g_effectrunning = 1;
+                    LoadBackgroundImage(picture, bgpalette, g_background);
                     RestoreScreen();
                     RedrawBorder();
                     SaveScreen();
                     update_display();
+                    g_effectrunning = 1;
 
                     /* Stop music playing and invalidate oldmusicfile in case of rollback */
                     if (isplaying) {
