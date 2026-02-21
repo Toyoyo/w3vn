@@ -469,9 +469,9 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
                             }
                         }
                         break;
-                    case 'B': case 'b':
+                    case 'B':
                         rollback = 1; gm.has_ended = 1; break;
-                    case 'Q': case 'q': {
+                    case 'Q': {
                         /* Wine MCI_PAUSE/MCI_RESUME is broken */
                         if(IsWine()) break;
 
@@ -521,7 +521,7 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
                         }
                         break;
                     }
-                    case 'R': case 'r':
+                    case 'R':
                         RestoreWindowSize(); break;
                 }
             } else {
