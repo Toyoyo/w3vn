@@ -314,12 +314,10 @@ static int rg_init(const char *bg, const char *audio, const char *bmap, int stri
     }
     gm->mci_device_id = mo.wDeviceID;
     /* Ensure position queries return milliseconds */
-    {
-        MCI_SET_PARMS msp;
-        memset(&msp, 0, sizeof msp);
-        msp.dwTimeFormat = MCI_FORMAT_MILLISECONDS;
-        mciSendCommand(gm->mci_device_id, MCI_SET, MCI_SET_TIME_FORMAT, (DWORD)(LPVOID)&msp);
-    }
+    MCI_SET_PARMS msp;
+    memset(&msp, 0, sizeof msp);
+    msp.dwTimeFormat = MCI_FORMAT_MILLISECONDS;
+    mciSendCommand(gm->mci_device_id, MCI_SET, MCI_SET_TIME_FORMAT, (DWORD)(LPVOID)&msp);
     /* Wine: apply cached volume to the rhythm game MCI device */
     if (g_wineVolume >= 0) {
         char vcmd[128];
@@ -473,23 +471,19 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
                         }
                         /* Show quit dialog (use temp buffer to avoid corrupting g_background) */
                         g_effectrunning = 0;
-                        {
-                            uint32_t *qsave = (uint32_t *)malloc(IMAGE_AREA_PIXELS * sizeof(uint32_t));
-                            if (qsave) memcpy(qsave, g_videoram, IMAGE_AREA_PIXELS * sizeof(uint32_t));
-                            DispQuit();
-                            {
-                                int qn = read_keyboard_status();
-                                while ((qn != 9 && qn != 10 && qn != 11) && g_running) {
-                                    if (qn == 7) RestoreWindowSize();
-                                    qn = read_keyboard_status();
-                                    Sleep(5);
-                                }
-                                if (qn == 10) {
-                                    quit = 1; gm.has_ended = 1;
-                                }
-                            }
-                            if (qsave) { memcpy(g_videoram, qsave, IMAGE_AREA_PIXELS * sizeof(uint32_t)); free(qsave); }
+                        uint32_t *qsave = (uint32_t *)malloc(IMAGE_AREA_PIXELS * sizeof(uint32_t));
+                        if (qsave) memcpy(qsave, g_videoram, IMAGE_AREA_PIXELS * sizeof(uint32_t));
+                        DispQuit();
+                        int qn = read_keyboard_status();
+                        while ((qn != 9 && qn != 10 && qn != 11) && g_running) {
+                            if (qn == 7) RestoreWindowSize();
+                            qn = read_keyboard_status();
+                            Sleep(5);
                         }
+                        if (qn == 10) {
+                            quit = 1; gm.has_ended = 1;
+                        }
+                        if (qsave) { memcpy(g_videoram, qsave, IMAGE_AREA_PIXELS * sizeof(uint32_t)); free(qsave); }
                         update_display();
                         g_effectrunning = 1;
                         if (!quit) {
