@@ -78,6 +78,8 @@ typedef struct {
     int        countdown;
     DWORD      countdown_start;
     uint32_t  *bg_pixels;    /* background image, NULL = black */
+    HMIDIOUT   midi_out;     /* for hit ding sound, NULL = unavailable */
+    DWORD      note_off_at;  /* when to send note-off (0 = none pending) */
 } RhythmGame;
 
 /* ── PRNG ────────────────────────────────────────────────────────────────── */
@@ -346,6 +348,16 @@ static int rg_init(const char *bg, const char *audio, const char *bmap, int stri
     gm->has_started   = 1;
     gm->countdown     = 3;
     gm->countdown_start = timeGetTime();
+
+    /* Open MIDI mapper for hit ding (GM ch1, Glockenspiel) */
+    gm->midi_out    = NULL;
+    gm->note_off_at = 0;
+    if (midiOutOpen(&gm->midi_out, MIDI_MAPPER, 0, 0, CALLBACK_NULL) == MMSYSERR_NOERROR) {
+        /* CC7 (channel volume) + CC11 (expression) on ch10 to max */
+        midiOutShortMsg(gm->midi_out, 0x007F07B9);
+        midiOutShortMsg(gm->midi_out, 0x007F0BB9);
+    }
+
     return 0;
 }
 
@@ -354,6 +366,13 @@ static void rg_cleanup(RhythmGame *gm) {
         mciSendCommand(gm->mci_device_id, MCI_STOP,  0, 0);
         mciSendCommand(gm->mci_device_id, MCI_CLOSE, 0, 0);
         gm->mci_device_id = 0;
+    }
+    if (gm->midi_out) {
+        /* Send any pending note-off before closing */
+        if (gm->note_off_at)
+            midiOutShortMsg(gm->midi_out, 0x000078B9); /* CC120 (All Sound Off) ch10 */
+        midiOutClose(gm->midi_out);
+        gm->midi_out = NULL;
     }
     free(gm->onset_times);
     free(gm->track_indices);
@@ -467,6 +486,11 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
                                     if (rg_fabsf(gm.onset_times[i] - mt) < HIT_THRESHOLD/1000.0f) {
                                         gm.hit_status[i] = 1;
                                         gm.num_hits++;
+                                        if (gm.midi_out) {
+                                            /* GM ch10 (0x99) note 49=0x31 (Crash Cymbal 1), vel 127 */
+                                            midiOutShortMsg(gm.midi_out, 0x007F3199);
+                                            gm.note_off_at = timeGetTime() + 500;
+                                        }
                                         break;
                                     }
                                 }
@@ -550,6 +574,12 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
                 Sleep(1500);
                 gm.has_ended = 1;
             }
+        }
+
+        /* Send note-off when due */
+        if (gm.note_off_at && timeGetTime() >= gm.note_off_at) {
+            midiOutShortMsg(gm.midi_out, 0x000078B9); /* CC120 (All Sound Off) ch10 */
+            gm.note_off_at = 0;
         }
 
         rg_render(&gm);
