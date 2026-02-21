@@ -1121,10 +1121,27 @@ static void run(void) {
                 rewind(script);
                 lineNumber = 0;
                 savepointer = 0;
-                savehistory_idx = 0;
-                memset(savehistory, 0, sizeof(savehistory));
                 willplaying = 0;
                 spritecount = 0;
+                memset(musicfile, 0, sizeof(musicfile));
+                memset(oldmusicfile, 0, sizeof(oldmusicfile));
+                memset(picture, 0, sizeof(picture));
+                memset(oldpicture, 0, sizeof(oldpicture));
+                reset_cursprites();
+                reset_prevsprites();
+                StopMusic();
+                isplaying = 0;
+                savehistory_idx = 0;
+                memset(savehistory, 0, sizeof(savehistory));
+                memset(choicedata, 0, 11);
+                memset(sayername, 0, sizeof(sayername));
+                skipnexthistory = 0;
+                loadsave = 0;
+                backfromvideo = 0;
+                g_textskip = 0;
+                charlines = 0;
+                memset(g_background, 0xFF, IMAGE_AREA_PIXELS * sizeof(uint32_t));
+                clear_screen();
             }
 
             /* 'B': Conditional branch */
