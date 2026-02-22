@@ -72,17 +72,10 @@ int ShowRgScore(const char *img_path) {
     /* Wait for Space (return -3), B (return -1), or Q (quit dialog -> return -2) */
     g_lastkey = 0;
     while (g_running) {
-        MSG msg;
-        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-            if (msg.message == WM_QUIT) { g_running = 0; break; }
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
-        int k = g_lastkey;
-        if (k == 1) { g_lastkey = 0; return -3; } /* Space */
-        if (k == 5) { g_lastkey = 0; return -1; } /* B */
+        int k = read_keyboard_status();
+        if (k == 1) return -3; /* Space */
+        if (k == 5) return -1; /* B */
         if (k == 2) { /* Q: show quit dialog */
-            g_lastkey = 0;
             uint32_t *qsave = (uint32_t *)malloc(IMAGE_AREA_PIXELS * sizeof(uint32_t));
             if (qsave) memcpy(qsave, g_videoram, IMAGE_AREA_PIXELS * sizeof(uint32_t));
             DispQuit();
