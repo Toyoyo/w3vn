@@ -688,10 +688,10 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
 
         FILE *fp = fopen(RGSCORE_FILE, "r");
         if (fp) {
-            char lines[RGSCORE_MAX][512];
+            char lines[RGSCORE_MAX][640];
             int  nlines = 0;
             int  updated = 0;
-            while (nlines < RGSCORE_MAX && fgets(lines[nlines], 512, fp)) {
+            while (nlines < RGSCORE_MAX && fgets(lines[nlines], 640, fp)) {
                 int len = (int)strlen(lines[nlines]);
                 while (len > 0 && (lines[nlines][len-1] == '\n' || lines[nlines][len-1] == '\r'))
                     lines[nlines][--len] = '\0';
@@ -712,7 +712,7 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
                             if (nlen >= 256) nlen = 255;
                             memcpy(name_field, lines[i] + flen + 1, nlen);
                         }
-                        snprintf(lines[i], 512, "%s|%s|%d", fname, name_field, score);
+                        snprintf(lines[i], 640, "%s|%s|%d", fname, name_field, score);
                         updated = 1;
                     }
                     break;

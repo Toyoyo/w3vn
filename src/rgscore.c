@@ -18,7 +18,7 @@ static int rgs_load(RgScoreEntry *entries, int max_entries) {
     FILE *fp = fopen(RGSCORE_FILE, "r");
     if (!fp) return 0;
     int count = 0;
-    char line[512];
+    char line[640];
     while (count < max_entries && fgets(line, sizeof(line), fp)) {
         /* Strip trailing newline */
         int len = (int)strlen(line);
@@ -69,17 +69,33 @@ int ShowRgScore(const char *img_path) {
 
     update_display();
 
-    /* Wait for Space (return -3) or B (return -1) */
+    /* Wait for Space (return -3), B (return -1), or Q (quit dialog -> return -2) */
     g_lastkey = 0;
     while (g_running) {
         MSG msg;
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT) { g_running = 0; break; }
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
         int k = g_lastkey;
         if (k == 1) { g_lastkey = 0; return -3; } /* Space */
         if (k == 5) { g_lastkey = 0; return -1; } /* B */
+        if (k == 2) { /* Q: show quit dialog */
+            g_lastkey = 0;
+            uint32_t *qsave = (uint32_t *)malloc(IMAGE_AREA_PIXELS * sizeof(uint32_t));
+            if (qsave) memcpy(qsave, g_videoram, IMAGE_AREA_PIXELS * sizeof(uint32_t));
+            DispQuit();
+            int qn = read_keyboard_status();
+            while (qn != 9 && qn != 10 && qn != 11 && g_running) {
+                if (qn == 7) RestoreWindowSize();
+                qn = read_keyboard_status();
+                Sleep(5);
+            }
+            if (qsave) { memcpy(g_videoram, qsave, IMAGE_AREA_PIXELS * sizeof(uint32_t)); free(qsave); }
+            update_display();
+            if (qn == 10) return -2; /* confirmed quit */
+        }
         Sleep(5);
     }
     return -3;
