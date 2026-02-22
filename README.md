@@ -140,7 +140,7 @@ Supported operands:
 
 * 'B' : Jump to label if register is set.
 
-  Syntax: ``B[register number][Choice][label]`` like ``B02LBL1`` meaning "if register 0 is at 2, jump to LBL1"
+  Syntax: ``B[register number][Value][label]`` like ``B02LBL1`` meaning "if register 0 is at 2, jump to LBL1"
 
 * 'D' : Wait the specified number of milliseconds (max 99999).
 
@@ -197,17 +197,17 @@ Supported operands:
 
 * 'G' : Play a game
 
-   General syntax: ``G[gameid][register][target score][]arguments``
+   Currently, two "games" are implemented, '0' is a rythm game and '1' it's high score screen.
 
-   Only game '0' Is implemented, which is a C re-implementation of renpy-rhythm (https://github.com/RuolinZheng08/renpy-rhythm) which uses the same beatmaps.
+   Syntax is ``G[game_id1][register1][difficulty1][score6][args]`` like in ``G013000100test.png|test.wav|test.bea``
 
-   Syntax is ``G0[register][target score][background image][music][beatmap]`` like in ``G010100test.png|test.wav|test.bea``
+   Meaning: Start the rythm game in difficulty 3 with a target score of 100, using test.png as the background, playing test.wav with test.bea as beatmap, using the register '1' to store success (1) or failure (2).
 
-   Meaning: Start the rythm gate with test.png as the background, play test.wav with test.bea as beatmap, use the register '1' to store success (1) or failure (2).
+   The rythm game is a C re-implementation of renpy-rhythm (https://github.com/RuolinZheng08/renpy-rhythm) which uses the same beatmaps.
 
-   You can then use a 'B' line to compare: ``B11LSUCC``
+   You can then use a 'B' line to compare: ``B11LSUCC`` or ``B12LFAIL``
 
-   Note the target score is a fixed value between 0000 and 9999.
+   Note the target score is a fixed value between 000000 and 999999.
 
    Also, resets sprites, but 'I' is expected after anyway.
 
