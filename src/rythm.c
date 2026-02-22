@@ -638,7 +638,14 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
         /* End when music finishes */
         if (gm.countdown == 0 && !gm.mci_play_at && !gm.has_ended) {
             if (!rg_music_playing(gm.mci_device_id)) {
-                Sleep(1500);
+                DWORD end_wait = timeGetTime() + 1500;
+                while (timeGetTime() < end_wait) {
+                    if (gm.note_off_at && timeGetTime() >= gm.note_off_at) {
+                        midiOutShortMsg(gm.midi_out, 0x000078B9);
+                        gm.note_off_at = 0;
+                    }
+                    Sleep(16);
+                }
                 gm.has_ended = 1;
             }
         }
