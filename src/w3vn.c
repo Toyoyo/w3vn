@@ -959,6 +959,8 @@ static void run(void) {
                             update_display();
                             while (read_keyboard_status() != 1 && g_running)
                                 Sleep(5);
+                            memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
+                            RedrawBorder();
                         }
                     } /* game_id == 0 */
 
