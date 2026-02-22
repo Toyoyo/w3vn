@@ -38,7 +38,16 @@
 #define IMAGE_AREA_PIXELS (SCREEN_WIDTH * TEXT_AREA_START)
 #define TEXT_AREA_PIXELS (SCREEN_WIDTH * 80)
 
+/* Rhythm game high score file */
+#define RGSCORE_FILE "data\\rgscore.txt"
+#define RGSCORE_MAX  20
+
 /* Rhythm game function */
 int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beatmap_path, int stride);
+
+/* Rhythm game high score screen */
+int ShowRgScore(const char *img_path);
+
+static int g_fullcombo = 0;
 
 #endif /* FUNC_H */

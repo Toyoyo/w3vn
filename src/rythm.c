@@ -666,8 +666,70 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
     }
 
     int score = quit ? -2 : rollback ? -1 : gm.score;
+
+    /* Check for full combo (no notes missed) */
+    if (score >= 0) {
+        int missed = 0;
+        for (int i = 0; i < gm.num_notes; i++)
+            if (gm.hit_status[i] == -1) { missed = 1; break; }
+        if (!missed) g_fullcombo = 1;
+    }
+
     rg_cleanup(&gm);
     g_effectrunning = 0;
     g_lastkey = 0;
+
+    /* Update high score if score improved */
+    if (score >= 0) {
+        /* Extract bare filename from audio_path (e.g. "data\foo.wav" -> "foo.wav") */
+        const char *fname = audio_path;
+        const char *p = audio_path;
+        while (*p) { if (*p == '\\' || *p == '/') fname = p + 1; p++; }
+
+        FILE *fp = fopen(RGSCORE_FILE, "r");
+        if (fp) {
+            char lines[RGSCORE_MAX][512];
+            int  nlines = 0;
+            int  updated = 0;
+            while (nlines < RGSCORE_MAX && fgets(lines[nlines], 512, fp)) {
+                int len = (int)strlen(lines[nlines]);
+                while (len > 0 && (lines[nlines][len-1] == '\n' || lines[nlines][len-1] == '\r'))
+                    lines[nlines][--len] = '\0';
+                nlines++;
+            }
+            fclose(fp);
+
+            int flen = (int)strlen(fname);
+            for (int i = 0; i < nlines; i++) {
+
+                if (strncmp(lines[i], fname, flen) == 0 && lines[i][flen] == '|') {
+                    const char *sep2 = strchr(lines[i] + flen + 1, '|');
+                    int old_score = sep2 ? atoi(sep2 + 1) : 0;
+                    if (score > old_score) {
+                        char name_field[256] = {0};
+                        if (sep2) {
+                            int nlen = (int)(sep2 - (lines[i] + flen + 1));
+                            if (nlen >= 256) nlen = 255;
+                            memcpy(name_field, lines[i] + flen + 1, nlen);
+                        }
+                        snprintf(lines[i], 512, "%s|%s|%d", fname, name_field, score);
+                        updated = 1;
+                    }
+                    break;
+                }
+            }
+
+            if (updated) {
+                fp = fopen(RGSCORE_FILE, "w");
+                if (fp) {
+                    for (int j = 0; j < nlines; j++)
+                        if (lines[j][0] != '\0')
+                            fprintf(fp, "%s\n", lines[j]);
+                    fclose(fp);
+                }
+            }
+        }
+    }
+
     return score;
 }

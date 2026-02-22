@@ -59,6 +59,7 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
 
 #include "func.c"
 #include "rythm.c"
+#include "rgscore.c"
 
 /* Macros */
 #define RestoreScreen() memcpy(g_videoram, g_background, IMAGE_AREA_PIXELS * sizeof(uint32_t))
@@ -944,6 +945,7 @@ static void run(void) {
                             RedrawBorder();
                             update_display();
 
+                            g_fullcombo = 0;
                             score = PlayRhythmGame(bg_path, audio_path, beatmap_path, stride);
 
                             if(score >=0) {
@@ -956,6 +958,10 @@ static void run(void) {
                                 g_textskip = 0;
                                 locate(0, 337);
                                 print_string(final_score);
+                                if(g_fullcombo) {
+                                    locate(0, 337 + 15);
+                                    print_string(" Full Combo!");
+                                }
                                 g_textskip = prev_textskip;
                                 update_display();
                                 while (read_keyboard_status() != 1 && g_running)
@@ -965,6 +971,19 @@ static void run(void) {
                             }
                         }
                     } /* game_id == 0 */
+
+                    if (game_id == 1) {
+                        /* Show rhythm game high score screen */
+                        /* Example: G100000000title.png */
+                        char img_path[260] = {0};
+                        int path_len = strlen(line) - 10;
+                        if (path_len > 0 && path_len < 260) {
+                            snprintf(img_path, sizeof(img_path), "data\\%s", line + 10);
+                        }
+                        if (img_path[0] != '\0') {
+                            score = ShowRgScore(img_path);
+                        }
+                    } /* game_id == 1 */
 
                     /* Handle rollback if 'B' was pressed */
                     if (score == -1 && savehistory_idx >= 2) {
