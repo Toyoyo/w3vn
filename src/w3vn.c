@@ -604,7 +604,7 @@ static void run(void) {
                                     if (*line == 'G') {
                                         reset_cursprites();
                                         spritecount = 0;
-                                        if (strlen(line) >= 8 && line[1] == '0') {
+                                        if (strlen(line) >= 10 && line[1] == '0') {
                                             memset(musicfile, 0, sizeof(musicfile));
                                             willplaying = 0;
                                         }
@@ -876,9 +876,9 @@ static void run(void) {
 
             /* 'G': Play game */
             if (*line == 'G') {
-                /* Format: G[game_id1][register1][stride1][score4][args] */
-                /* Example: G0100010test.png|test.wav|test.bea (stride=0) */
-                /* Example: G0130010test.png|test.wav|test.bea (stride=3) */
+                /* Format: G[game_id1][register1][stride1][score6][args] */
+                /* Example: G010000010test.png|test.wav|test.bea (stride=0) */
+                /* Example: G013000010test.png|test.wav|test.bea (stride=3) */
 
                 /* Reset sprites, redraw background, so we exit with a clean state */
                 reset_cursprites();
@@ -886,15 +886,15 @@ static void run(void) {
                 LoadBackgroundImage(picture, bgpalette, g_background);
                 RestoreScreen();
                 SaveScreen();
-                if (strlen(line) >= 8) {
+                if (strlen(line) >= 10) {
                     char game_s[2]     = {0};
                     char register_s[2] = {0};
                     char stride_s[2]   = {0};
-                    char score_s[5]    = {0};
+                    char score_s[7]    = {0};
                     game_s[0]     = line[1];
                     register_s[0] = line[2];
                     stride_s[0]   = line[3];
-                    memcpy(score_s, line + 4, 4);
+                    memcpy(score_s, line + 4, 6);
 
                     int game_id        = atoi(game_s);
                     int register_idx   = atoi(register_s);
@@ -909,9 +909,9 @@ static void run(void) {
                         char bg_path[260] = {0};
                         char audio_path[260] = {0};
                         char beatmap_path[260] = {0};
-                        int path_len = strlen(line) - 8;
+                        int path_len = strlen(line) - 10;
                         if (path_len > 0) {
-                            const char *args = line + 8;
+                            const char *args = line + 10;
                             const char *sep1 = strchr(args, '|');
                             if (sep1) {
                                 int bg_len = (int)(sep1 - args);

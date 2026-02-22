@@ -69,6 +69,8 @@ typedef struct {
     int       *hit_status;
     int        num_notes;
     int        num_hits;
+    int        score;
+    int        combo;
     int        has_started;
     int        has_ended;
     DWORD      music_start_time;
@@ -474,7 +476,7 @@ static void rg_render(RhythmGame *gm) {
     float note_offset_s = NOTE_OFFSET_MS / 1000.0f;
 
     for (int i = 0; i < gm->num_notes; i++) {
-        if (gm->hit_status[i]) continue;
+        if (gm->hit_status[i] != 0) continue;
         float td = gm->onset_times[i] - music_time; /* >0 = future, 0 = hit zone */
         if (td < 0.0f || td > note_offset_s) continue;
         float frac = td / note_offset_s;             /* 1=just appeared at top, 0=at bar */
@@ -484,9 +486,14 @@ static void rg_render(RhythmGame *gm) {
     }
 
     /* UI text: top-left, above the falling notes */
-    char score_buf[32];
-    snprintf(score_buf, sizeof score_buf, "Score: %d", gm->num_hits);
+    char score_buf[64];
+    snprintf(score_buf, sizeof score_buf, "Score: %d", gm->score);
     rg_puts_outlined(10, 5, score_buf, COLOR_WHITE);
+    if (gm->combo > 1) {
+        char combo_buf[32];
+        snprintf(combo_buf, sizeof combo_buf, "Combo x%d (+%d%%)", gm->combo, gm->combo * 10);
+        rg_puts_outlined(10, 22, combo_buf, COLOR_ORANGE);
+    }
 }
 
 /* ── main loop ───────────────────────────────────────────────────────────── */
@@ -533,10 +540,12 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
                                         /* VK_RIGHT, VK_NUMPAD2 */                               3;
                             float mt = (float)(int)(timeGetTime() - gm.music_start_time) / 1000.0f;
                             for (int i = 0; i < gm.num_notes; i++) {
-                                if (!gm.hit_status[i] && gm.track_indices[i] == track) {
+                                if (gm.hit_status[i] == 0 && gm.track_indices[i] == track) {
                                     if (rg_fabsf(gm.onset_times[i] - mt) < HIT_THRESHOLD/1000.0f) {
                                         gm.hit_status[i] = 1;
                                         gm.num_hits++;
+                                        gm.score += 10 + gm.combo;
+                                        gm.combo++;
                                         if (IsWine()) {
                                             if (gm.mci_ding_id) {
                                                 MCI_SEEK_PARMS sp; memset(&sp, 0, sizeof sp);
@@ -640,12 +649,23 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
             gm.note_off_at = 0;
         }
 
+        /* Detect missed notes (passed hit window without being hit) */
+        if (gm.countdown == 0 && !gm.mci_play_at) {
+            float mt = (float)(int)(timeGetTime() - gm.music_start_time) / 1000.0f;
+            for (int i = 0; i < gm.num_notes; i++) {
+                if (gm.hit_status[i] == 0 && mt > gm.onset_times[i] + HIT_THRESHOLD / 1000.0f) {
+                    gm.hit_status[i] = -1; /* mark as missed */
+                    gm.combo = 0;
+                }
+            }
+        }
+
         rg_render(&gm);
         update_display();
         Sleep(16); /* ~60 fps */
     }
 
-    int score = quit ? -2 : rollback ? -1 : gm.num_hits;
+    int score = quit ? -2 : rollback ? -1 : gm.score;
     rg_cleanup(&gm);
     g_effectrunning = 0;
     g_lastkey = 0;
