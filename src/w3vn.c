@@ -945,6 +945,20 @@ static void run(void) {
                             update_display();
 
                             score = PlayRhythmGame(bg_path, audio_path, beatmap_path, stride);
+
+                            charlines = 0;
+                            memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
+                            RedrawBorder();
+                            char final_score[260] = {0};
+                            snprintf(final_score, 259, " Score: %d - Press Space", score);
+                            int prev_textskip = g_textskip;
+                            g_textskip = 0;
+                            locate(0, 337);
+                            print_string(final_score);
+                            g_textskip = prev_textskip;
+                            update_display();
+                            while (read_keyboard_status() != 1 && g_running)
+                                Sleep(5);
                         }
                     } /* game_id == 0 */
 
