@@ -2898,10 +2898,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             /* WAV SFX finished - close device immediately to free waveaudio */
             if (g_wavSfxMciId != 0 && (UINT)lParam == g_wavSfxMciId) {
                 CloseWavSfx();
-                break;
-            }
             /* Music finished playing - restart for looping */
-            if (wParam == MCI_NOTIFY_SUCCESSFUL && g_mciDeviceID != 0) {
+            } else if (wParam == MCI_NOTIFY_SUCCESSFUL && g_mciDeviceID != 0 && (UINT)lParam == g_mciDeviceID) {
                 RestartMusic();
             }
             break;
