@@ -26,6 +26,8 @@ static void RestartMusic(void);
 static void CheckMusicStatus(void);
 static void ShowConfigDialog(void);
 static int LoadBackgroundImage(const char *picture, uint8_t *bgpalette, uint32_t *background);
+static void CloseMainSfx(void);
+static void PlayMainSfx(DWORD msg);
 
 /* Configuration dialog control IDs */
 #define IDC_VOLUME_LABEL    101
@@ -2042,6 +2044,92 @@ static int DisplaySprite(const char *spritefile, int posx, int posy) {
         return DisplayPngSprite(spritefile, posx, posy);
     }
     return DisplayTextSprite(spritefile, posx, posy);
+}
+
+/* ── Main engine MIDI SFX ───────────────────────────────────────────────── */
+static char g_mainSfxTmp[260] = "";
+static UINT g_mainSfxMciId = 0;
+
+/* Generate a 42-byte single-note MIDI file for Wine SFX */
+static void gen_sfx_midi(const char *path, BYTE status, BYTE note, BYTE vel) {
+    unsigned char mid[42] = {
+        /* MThd: format 0, 1 track, 480 ticks/quarter */
+        0x4D,0x54,0x68,0x64, 0x00,0x00,0x00,0x06,
+        0x00,0x00, 0x00,0x01, 0x01,0xE0,
+        /* MTrk: 20 bytes of data */
+        0x4D,0x54,0x72,0x6B, 0x00,0x00,0x00,0x14,
+        /* delta=0, tempo 500ms/beat */
+        0x00, 0xFF,0x51,0x03, 0x07,0xA1,0x20,
+        /* delta=0, note-on: [30]=status, [31]=note, [32]=vel */
+        0x00, 0x00,0x00,0x00,
+        /* delta=480 ticks, note-off: [35]=status, [36]=note, [37]=0 */
+        0x83,0x60, 0x00,0x00,0x00,
+        /* delta=0, end of track */
+        0x00, 0xFF,0x2F,0x00
+    };
+    mid[30] = status; mid[31] = note; mid[32] = vel;
+    mid[35] = status; mid[36] = note;
+    FILE *f = fopen(path, "wb");
+    if (f) { fwrite(mid, 1, sizeof(mid), f); fclose(f); }
+}
+
+static void CloseMainSfx(void) {
+    if (g_mainSfxMciId) {
+        mciSendCommand(g_mainSfxMciId, MCI_STOP, 0, 0);
+        mciSendCommand(g_mainSfxMciId, MCI_CLOSE, 0, 0);
+        g_mainSfxMciId = 0;
+    }
+    if (g_mainSfxTmp[0]) {
+        DeleteFileA(g_mainSfxTmp);
+        g_mainSfxTmp[0] = '\0';
+    }
+}
+
+static void PlayMainSfx(DWORD msg) {
+    BYTE status = (BYTE)(msg & 0xFF);
+    BYTE note   = (BYTE)((msg >> 8) & 0xFF);
+    BYTE vel    = (BYTE)((msg >> 16) & 0xFF);
+    BYTE scaled_vel = (BYTE)((vel * g_sfxVolume + 50) / 100);
+
+    if (g_mainSfxMciId) {
+        mciSendCommand(g_mainSfxMciId, MCI_STOP, 0, 0);
+        mciSendCommand(g_mainSfxMciId, MCI_CLOSE, 0, 0);
+        g_mainSfxMciId = 0;
+    }
+    if (!g_mainSfxTmp[0]) {
+        char tmpdir[260];
+        tmpdir[0] = '\0';
+        GetTempPathA(sizeof(tmpdir), tmpdir);
+        if (!tmpdir[0])
+            GetWindowsDirectoryA(tmpdir, sizeof(tmpdir));
+        snprintf(g_mainSfxTmp, sizeof(g_mainSfxTmp), "%s\\sfx_main.mid", tmpdir);
+    }
+    gen_sfx_midi(g_mainSfxTmp, status, note, scaled_vel);
+    char fullpath[260];
+    if (GetFullPathNameA(g_mainSfxTmp, sizeof(fullpath), fullpath, NULL) == 0)
+        strncpy(fullpath, g_mainSfxTmp, 259);
+    MCI_OPEN_PARMS mo;
+    memset(&mo, 0, sizeof mo);
+    mo.lpstrElementName = fullpath;
+    mo.lpstrAlias       = "sfx_main";
+    if (IsWine()) {
+        mo.lpstrDeviceType = "mpegvideo";
+        if (mciSendCommand(0, MCI_OPEN, MCI_OPEN_ELEMENT | MCI_OPEN_ALIAS | MCI_OPEN_TYPE,
+                (DWORD)(LPVOID)&mo) == 0) {
+            g_mainSfxMciId = mo.wDeviceID;
+            MCI_PLAY_PARMS pp;
+            memset(&pp, 0, sizeof pp);
+            mciSendCommand(g_mainSfxMciId, MCI_PLAY, 0, (DWORD)(LPVOID)&pp);
+        }
+    } else {
+        if (mciSendCommand(0, MCI_OPEN, MCI_OPEN_ELEMENT | MCI_OPEN_ALIAS,
+                (DWORD)(LPVOID)&mo) == 0) {
+            g_mainSfxMciId = mo.wDeviceID;
+            MCI_PLAY_PARMS pp;
+            memset(&pp, 0, sizeof pp);
+            mciSendCommand(g_mainSfxMciId, MCI_PLAY, 0, (DWORD)(LPVOID)&pp);
+        }
+    }
 }
 
 static int GetMasterVolume(void) {

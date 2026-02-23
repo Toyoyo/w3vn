@@ -884,6 +884,12 @@ static void run(void) {
                 }
             }
 
+            /* 'Q': Play MIDI SFX (hex DWORD, e.g. Q007F3199) */
+            if (*line == 'Q') {
+                if (strlen(line) >= 9)
+                    PlayMainSfx((DWORD)strtoul(line + 1, NULL, 16));
+            }
+
             /* 'G': Play game */
             if (*line == 'G') {
                 /* Format: G[game_id1][register1][stride1][score6][args] */
@@ -955,6 +961,8 @@ static void run(void) {
                             update_display();
 
                             g_fullcombo = 0;
+                            /* Release MIDI mapper so rhythm game can open its own handle */
+                            CloseMainSfx();
                             score = PlayRhythmGame(bg_path, audio_path, beatmap_path, stride);
 
                             if(score >=0) {
@@ -1337,7 +1345,15 @@ static void run(void) {
             /* 'D': Delay */
             if (*line == 'D') {
                 if (strlen(line + 1) < 6) {
-                    Sleep(atoi(line + 1) * 1000);
+                    DWORD start = GetTickCount();
+                    DWORD ms = (DWORD)atoi(line + 1);
+                    MSG msg;
+                    while ((GetTickCount() - start) < ms) {
+                        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+                            TranslateMessage(&msg);
+                            DispatchMessage(&msg);
+                        }
+                    }
                 }
             }
 
@@ -1443,6 +1459,7 @@ static void run(void) {
     }
 
 endprog:
+    CloseMainSfx();
     StopMusic();
     StopVideo();
     fclose(script);
