@@ -2114,22 +2114,21 @@ static void PlayMidiSfx(DWORD msg) {
     memset(&mo, 0, sizeof mo);
     mo.lpstrElementName = fullpath;
     mo.lpstrAlias       = "sfx_main";
+    MCI_PLAY_PARMS pp;
+    memset(&pp, 0, sizeof pp);
+    pp.dwCallback = (DWORD)g_hwnd;
     if (IsWine()) {
         mo.lpstrDeviceType = "mpegvideo";
         if (mciSendCommand(0, MCI_OPEN, MCI_OPEN_ELEMENT | MCI_OPEN_ALIAS | MCI_OPEN_TYPE,
                 (DWORD)(LPVOID)&mo) == 0) {
             g_midiSfxMciId = mo.wDeviceID;
-            MCI_PLAY_PARMS pp;
-            memset(&pp, 0, sizeof pp);
-            mciSendCommand(g_midiSfxMciId, MCI_PLAY, 0, (DWORD)(LPVOID)&pp);
+            mciSendCommand(g_midiSfxMciId, MCI_PLAY, MCI_NOTIFY, (DWORD)(LPVOID)&pp);
         }
     } else {
         if (mciSendCommand(0, MCI_OPEN, MCI_OPEN_ELEMENT | MCI_OPEN_ALIAS,
                 (DWORD)(LPVOID)&mo) == 0) {
             g_midiSfxMciId = mo.wDeviceID;
-            MCI_PLAY_PARMS pp;
-            memset(&pp, 0, sizeof pp);
-            mciSendCommand(g_midiSfxMciId, MCI_PLAY, 0, (DWORD)(LPVOID)&pp);
+            mciSendCommand(g_midiSfxMciId, MCI_PLAY, MCI_NOTIFY, (DWORD)(LPVOID)&pp);
         }
     }
 }
@@ -2895,8 +2894,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             break;
 
         case MM_MCINOTIFY:
+            /* MIDI SFX finished - close device to release MIDI hardware */
+            if (g_midiSfxMciId != 0 && (UINT)lParam == g_midiSfxMciId) {
+                CloseMidiSfx();
             /* WAV SFX finished - close device immediately to free waveaudio */
-            if (g_wavSfxMciId != 0 && (UINT)lParam == g_wavSfxMciId) {
+            } else if (g_wavSfxMciId != 0 && (UINT)lParam == g_wavSfxMciId) {
                 CloseWavSfx();
             /* Music finished playing - restart for looping */
             } else if (wParam == MCI_NOTIFY_SUCCESSFUL && g_mciDeviceID != 0 && (UINT)lParam == g_mciDeviceID) {
