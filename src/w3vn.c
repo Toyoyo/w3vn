@@ -207,6 +207,8 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
         charlines = 0;\
         memset(g_background, 0xFF, IMAGE_AREA_PIXELS * sizeof(uint32_t));\
         clear_screen();\
+        CloseMidiSfx();\
+        CloseWavSfx();\
     }\
 }
 
@@ -1210,6 +1212,8 @@ static void run(void) {
                 charlines = 0;
                 memset(g_background, 0xFF, IMAGE_AREA_PIXELS * sizeof(uint32_t));
                 clear_screen();
+                CloseMidiSfx();
+                CloseWavSfx();
             }
 
             /* 'B': Conditional branch */
