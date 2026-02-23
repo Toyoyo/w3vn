@@ -498,7 +498,7 @@ static void run(void) {
                                 memset(picture, 0, sizeof(picture));
 
                                 /* Stop any active SFX before replay */
-                                CloseMainSfx();
+                                CloseMidiSfx();
                                 CloseWavSfx();
 
                                 /* On load (not rollback): stop music - will restart if 'P' is encountered */
@@ -891,7 +891,7 @@ static void run(void) {
             /* 'Q': Play MIDI SFX (hex DWORD, e.g. Q007F3199) */
             if (*line == 'Q') {
                 if (strlen(line) >= 9)
-                    PlayMainSfx((DWORD)strtoul(line + 1, NULL, 16));
+                    PlayMidiSfx((DWORD)strtoul(line + 1, NULL, 16));
             }
 
             /* 'K': Play WAV (or other non-MIDI) SFX (e.g. Ksounds\click.wav) */
@@ -972,7 +972,7 @@ static void run(void) {
 
                             g_fullcombo = 0;
                             /* Release MIDI mapper so rhythm game can open its own handle */
-                            CloseMainSfx();
+                            CloseMidiSfx();
                             CloseWavSfx();
                             score = PlayRhythmGame(bg_path, audio_path, beatmap_path, stride);
 
@@ -1470,7 +1470,7 @@ static void run(void) {
     }
 
 endprog:
-    CloseMainSfx();
+    CloseMidiSfx();
     CloseWavSfx();
     StopMusic();
     StopVideo();

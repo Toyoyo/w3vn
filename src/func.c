@@ -26,8 +26,8 @@ static void RestartMusic(void);
 static void CheckMusicStatus(void);
 static void ShowConfigDialog(void);
 static int LoadBackgroundImage(const char *picture, uint8_t *bgpalette, uint32_t *background);
-static void CloseMainSfx(void);
-static void PlayMainSfx(DWORD msg);
+static void CloseMidiSfx(void);
+static void PlayMidiSfx(DWORD msg);
 static void CloseWavSfx(void);
 static void PlayWavSfx(const char *filename);
 
@@ -2049,8 +2049,8 @@ static int DisplaySprite(const char *spritefile, int posx, int posy) {
 }
 
 /* ── Main engine MIDI SFX ───────────────────────────────────────────────── */
-static char g_mainSfxTmp[260] = "";
-static UINT g_mainSfxMciId = 0;
+static char g_midiSfxTmp[260] = "";
+static UINT g_midiSfxMciId = 0;
 
 /* Generate a 42-byte single-note MIDI file for Wine SFX */
 static void gen_sfx_midi(const char *path, BYTE status, BYTE note, BYTE vel) {
@@ -2075,41 +2075,41 @@ static void gen_sfx_midi(const char *path, BYTE status, BYTE note, BYTE vel) {
     if (f) { fwrite(mid, 1, sizeof(mid), f); fclose(f); }
 }
 
-static void CloseMainSfx(void) {
-    if (g_mainSfxMciId) {
-        mciSendCommand(g_mainSfxMciId, MCI_STOP, 0, 0);
-        mciSendCommand(g_mainSfxMciId, MCI_CLOSE, 0, 0);
-        g_mainSfxMciId = 0;
+static void CloseMidiSfx(void) {
+    if (g_midiSfxMciId) {
+        mciSendCommand(g_midiSfxMciId, MCI_STOP, 0, 0);
+        mciSendCommand(g_midiSfxMciId, MCI_CLOSE, 0, 0);
+        g_midiSfxMciId = 0;
     }
-    if (g_mainSfxTmp[0]) {
-        DeleteFileA(g_mainSfxTmp);
-        g_mainSfxTmp[0] = '\0';
+    if (g_midiSfxTmp[0]) {
+        DeleteFileA(g_midiSfxTmp);
+        g_midiSfxTmp[0] = '\0';
     }
 }
 
-static void PlayMainSfx(DWORD msg) {
+static void PlayMidiSfx(DWORD msg) {
     BYTE status = (BYTE)(msg & 0xFF);
     BYTE note   = (BYTE)((msg >> 8) & 0xFF);
     BYTE vel    = (BYTE)((msg >> 16) & 0xFF);
     BYTE scaled_vel = (BYTE)((vel * g_sfxVolume + 50) / 100);
 
-    if (g_mainSfxMciId) {
-        mciSendCommand(g_mainSfxMciId, MCI_STOP, 0, 0);
-        mciSendCommand(g_mainSfxMciId, MCI_CLOSE, 0, 0);
-        g_mainSfxMciId = 0;
+    if (g_midiSfxMciId) {
+        mciSendCommand(g_midiSfxMciId, MCI_STOP, 0, 0);
+        mciSendCommand(g_midiSfxMciId, MCI_CLOSE, 0, 0);
+        g_midiSfxMciId = 0;
     }
-    if (!g_mainSfxTmp[0]) {
+    if (!g_midiSfxTmp[0]) {
         char tmpdir[260];
         tmpdir[0] = '\0';
         GetTempPathA(sizeof(tmpdir), tmpdir);
         if (!tmpdir[0])
             GetWindowsDirectoryA(tmpdir, sizeof(tmpdir));
-        snprintf(g_mainSfxTmp, sizeof(g_mainSfxTmp), "%s\\sfx_main.mid", tmpdir);
+        snprintf(g_midiSfxTmp, sizeof(g_midiSfxTmp), "%s\\sfx_main.mid", tmpdir);
     }
-    gen_sfx_midi(g_mainSfxTmp, status, note, scaled_vel);
+    gen_sfx_midi(g_midiSfxTmp, status, note, scaled_vel);
     char fullpath[260];
-    if (GetFullPathNameA(g_mainSfxTmp, sizeof(fullpath), fullpath, NULL) == 0)
-        strncpy(fullpath, g_mainSfxTmp, 259);
+    if (GetFullPathNameA(g_midiSfxTmp, sizeof(fullpath), fullpath, NULL) == 0)
+        strncpy(fullpath, g_midiSfxTmp, 259);
     MCI_OPEN_PARMS mo;
     memset(&mo, 0, sizeof mo);
     mo.lpstrElementName = fullpath;
@@ -2118,18 +2118,18 @@ static void PlayMainSfx(DWORD msg) {
         mo.lpstrDeviceType = "mpegvideo";
         if (mciSendCommand(0, MCI_OPEN, MCI_OPEN_ELEMENT | MCI_OPEN_ALIAS | MCI_OPEN_TYPE,
                 (DWORD)(LPVOID)&mo) == 0) {
-            g_mainSfxMciId = mo.wDeviceID;
+            g_midiSfxMciId = mo.wDeviceID;
             MCI_PLAY_PARMS pp;
             memset(&pp, 0, sizeof pp);
-            mciSendCommand(g_mainSfxMciId, MCI_PLAY, 0, (DWORD)(LPVOID)&pp);
+            mciSendCommand(g_midiSfxMciId, MCI_PLAY, 0, (DWORD)(LPVOID)&pp);
         }
     } else {
         if (mciSendCommand(0, MCI_OPEN, MCI_OPEN_ELEMENT | MCI_OPEN_ALIAS,
                 (DWORD)(LPVOID)&mo) == 0) {
-            g_mainSfxMciId = mo.wDeviceID;
+            g_midiSfxMciId = mo.wDeviceID;
             MCI_PLAY_PARMS pp;
             memset(&pp, 0, sizeof pp);
-            mciSendCommand(g_mainSfxMciId, MCI_PLAY, 0, (DWORD)(LPVOID)&pp);
+            mciSendCommand(g_midiSfxMciId, MCI_PLAY, 0, (DWORD)(LPVOID)&pp);
         }
     }
 }
