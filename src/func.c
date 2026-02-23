@@ -580,7 +580,7 @@ static void RedrawBorder(void) {
     DrawVLine(639, 320, 399);
 }
 
-/* Set cursor position (in character cells, 8x8 font) */
+/* Set cursor position (in pixels) */
 static void locate(int x, int y) {
     g_cursorX = x;
     g_cursorY = y;
@@ -588,7 +588,7 @@ static void locate(int x, int y) {
 
 /* Draw a single character at the current cursor position
  * Uses 8x15 VGA-style font
- * Text area (y >= 320) has 1 pixel offset for gap after border */
+ * Text area (y >= 320) has 2 pixels offset for gap after border */
 static void print_char(char c) {
     unsigned char uc = (unsigned char)c;
     int idx;
