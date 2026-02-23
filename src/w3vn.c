@@ -953,7 +953,7 @@ static void run(void) {
                                 memcpy(g_videoram + IMAGE_AREA_PIXELS, g_textarea, TEXT_AREA_PIXELS * sizeof(uint32_t));
                                 RedrawBorder();
                                 char final_score[260] = {0};
-                                snprintf(final_score, 259, " Score: %d - Press Space", score);
+                                snprintf(final_score, 259, " Score: %d", score);
                                 int prev_textskip = g_textskip;
                                 g_textskip = 0;
                                 locate(0, 337);
@@ -962,6 +962,8 @@ static void run(void) {
                                     locate(0, 337 + 15);
                                     print_string(" Full Combo!");
                                 }
+                                locate(0, 337 + 30);
+                                print_string(" Press Space");
                                 g_textskip = prev_textskip;
                                 update_display();
                                 while (read_keyboard_status() != 1 && g_running)
