@@ -40,6 +40,8 @@ TSTVN Engine - Win32s
 
 'V' line is the audio volume level (mostly set via the configuration dialog), if not present, volume is not restored on startup.
 
+'K' line is the SFX audio volume level (mostly set via the configuration dialog), if not present, defaults to 100
+
 'X' line is the (MIDI) SFX volume level (set via the configuration dialog), if not present, volume is not restored on startup. This is currently only used in the rythm game.
 
 'D' line is the audio auxiliary device name (used on Win32s, ignored on Win95+), you probably won't want to change it, defaults to "volume", line is optional
@@ -217,7 +219,7 @@ Supported operands:
 
   This creates a temporary file for the MIDI note, using GetTempPathA() or GetWindowsDirectoryA() if this fails.
 
-  Expected format: ``Format: Q00VVNNSS`` like ``Q007F3199``
+  Expected format: ``Format: Q00VVNNSS`` like ``Q007F3199`` (unused / velocity / note / status)
 
   This uses the FX Volume level while creating the temp midi file so this doesn't depend on a separate playing channel.
 
