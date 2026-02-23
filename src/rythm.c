@@ -15,6 +15,8 @@
 
 /* External state from w3vn.c */
 extern HWND g_hwnd;
+extern int g_sfxVolume;
+extern HMIDIOUT g_sfxMidiOut;
 extern volatile int g_running;
 extern volatile int g_lastkey;
 extern volatile int g_effectrunning;
@@ -390,19 +392,28 @@ static int rg_init(const char *bg, const char *audio, const char *bmap, int stri
             MCI_OPEN_PARMS mo;
             memset(&mo, 0, sizeof mo);
             mo.lpstrElementName = fullpath;
-            mo.lpstrAlias       = "ding_midi";
+            mo.lpstrAlias       = "sfx_midi";
             mo.lpstrDeviceType  = "mpegvideo";
             if (mciSendCommand(0, MCI_OPEN,
                     MCI_OPEN_ELEMENT | MCI_OPEN_ALIAS | MCI_OPEN_TYPE,
-                    (DWORD)(LPVOID)&mo) == 0)
+                    (DWORD)(LPVOID)&mo) == 0) {
                 gm->mci_ding_id = mo.wDeviceID;
+                char vcmd[64];
+                snprintf(vcmd, sizeof(vcmd), "setaudio sfx_midi volume to %d", (g_sfxVolume * 1000) / 100);
+                mciSendString(vcmd, NULL, 0, NULL);
+            }
         }
     } else {
         /* Windows: midiOut works fine */
         if (midiOutOpen(&gm->midi_out, MIDI_MAPPER, 0, 0, CALLBACK_NULL) == MMSYSERR_NOERROR) {
-            /* CC7 (channel volume) + CC11 (expression) on ch10 to max */
-            midiOutShortMsg(gm->midi_out, 0x007F07B9);
-            midiOutShortMsg(gm->midi_out, 0x007F0BB9);
+            /* CC7 (channel volume) + CC11 (expression) on all channels, scaled by SFX volume */
+            BYTE vol = (BYTE)((g_sfxVolume * 127 + 50) / 100);
+            int ch;
+            for (ch = 0; ch < 16; ch++) {
+                midiOutShortMsg(gm->midi_out, ((DWORD)vol << 16) | (0x07B0 | ch));
+                midiOutShortMsg(gm->midi_out, ((DWORD)vol << 16) | (0x0BB0 | ch));
+            }
+            g_sfxMidiOut = gm->midi_out;
         }
     }
 
@@ -422,6 +433,7 @@ static void rg_cleanup(RhythmGame *gm) {
         if (gm->ding_tmp[0]) DeleteFileA(gm->ding_tmp);
     }
     if (gm->midi_out) {
+        g_sfxMidiOut = NULL;
         if (gm->note_off_at)
             midiOutShortMsg(gm->midi_out, 0x000078B9); /* CC120 (All Sound Off) ch10 */
         midiOutClose(gm->midi_out);

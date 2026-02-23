@@ -34,6 +34,8 @@ static int LoadBackgroundImage(const char *picture, uint8_t *bgpalette, uint32_t
 #define IDC_HQ_CHECKBOX     104
 #define IDC_DELAY_LABEL     105
 #define IDC_DELAY_SLIDER    106
+#define IDC_SFXVOL_LABEL    107
+#define IDC_SFXVOL_SLIDER   108
 
 static HWND g_configDialog = NULL;
 static int g_recenterDialog = 0;
@@ -45,6 +47,8 @@ static DWORD g_renderthrottle = 15;
 #define IsWine() (GetProcAddress(GetModuleHandle("ntdll.dll"), "wine_get_version") != NULL)
 static int g_dialogCreating = 0;
 static int g_wineVolume = -1;
+extern int g_sfxVolume;
+extern HMIDIOUT g_sfxMidiOut;
 
 /* Process a message through IsDialogMessage for tab navigation,
  * but bypass it for keys that should close the dialog (c/q/escape) */
@@ -2314,6 +2318,38 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 }
                 g_textdelay = 100 - pos;
             }
+            if (hSlider == GetDlgItem(hwnd, IDC_SFXVOL_SLIDER)) {
+                int pos = GetScrollPos(hSlider, SB_CTL);
+                switch (LOWORD(wParam)) {
+                    case SB_LINELEFT:  pos = max(0, pos - 1); break;
+                    case SB_LINERIGHT: pos = min(100, pos + 1); break;
+                    case SB_PAGELEFT:  pos = max(0, pos - 10); break;
+                    case SB_PAGERIGHT: pos = min(100, pos + 10); break;
+                    case SB_THUMBTRACK:
+                    case SB_THUMBPOSITION:
+                        pos = HIWORD(wParam);
+                        break;
+                }
+                SetScrollPos(hSlider, SB_CTL, pos, TRUE);
+                InvalidateRect(hSlider, NULL, TRUE);
+                if (IsWine()) {
+                    SetFocus(hwnd);
+                    SetFocus(hSlider);
+                }
+                g_sfxVolume = pos;
+                if (IsWine()) {
+                    char vcmd[64];
+                    snprintf(vcmd, sizeof(vcmd), "setaudio sfx_midi volume to %d", (pos * 1000) / 100);
+                    mciSendString(vcmd, NULL, 0, NULL);
+                } else if (g_sfxMidiOut) {
+                    BYTE vol = (BYTE)((pos * 127 + 50) / 100);
+                    int ch;
+                    for (ch = 0; ch < 16; ch++) {
+                        midiOutShortMsg(g_sfxMidiOut, ((DWORD)vol << 16) | (0x07B0 | ch));
+                        midiOutShortMsg(g_sfxMidiOut, ((DWORD)vol << 16) | (0x0BB0 | ch));
+                    }
+                }
+            }
             return 0;
         }
 
@@ -2340,10 +2376,13 @@ static LRESULT CALLBACK ConfigDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             char delaystr[4];
 
             KillTimer(hwnd, 1);
+            char sfxstr[4];
             snprintf(volstr, sizeof(volstr), "%03d", GetMasterVolume());
             UpdateIniLine('V', volstr);
             snprintf(delaystr, sizeof(delaystr), "%03d", g_textdelay);
             UpdateIniLine('P', delaystr);
+            snprintf(sfxstr, sizeof(sfxstr), "%03d", g_sfxVolume);
+            UpdateIniLine('X', sfxstr);
 
             EnableWindow(g_hwnd, TRUE);
             SetForegroundWindow(g_hwnd);
@@ -2384,7 +2423,7 @@ static void ShowConfigDialog(void) {
     HWND hSlider;
     RECT rect;
     int dialogWidth = 320;
-    int dialogHeight = 120;
+    int dialogHeight = 155;
     int x, y;
 
     /* Don't open multiple dialogs */
@@ -2455,11 +2494,29 @@ static void ShowConfigDialog(void) {
     SetScrollRange(hSlider, SB_CTL, 0, 100, FALSE);
     SetScrollPos(hSlider, SB_CTL, GetMasterVolume(), TRUE);
 
+    /* Create "SFX volume" label */
+    CreateWindow(
+        "STATIC", "SFX volume",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        10, 50, 80, 20,
+        g_configDialog, (HMENU)IDC_SFXVOL_LABEL,
+        GetModuleHandle(NULL), NULL);
+
+    /* Create SFX volume slider (horizontal scrollbar) */
+    hSlider = CreateWindow(
+        "SCROLLBAR", NULL,
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | SBS_HORZ,
+        95, 50, 210, 17,
+        g_configDialog, (HMENU)IDC_SFXVOL_SLIDER,
+        GetModuleHandle(NULL), NULL);
+    SetScrollRange(hSlider, SB_CTL, 0, 100, FALSE);
+    SetScrollPos(hSlider, SB_CTL, g_sfxVolume, TRUE);
+
     /* Create "Text speed" label */
     CreateWindow(
         "STATIC", "Text speed",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        10, 50, 80, 20,
+        10, 85, 80, 20,
         g_configDialog, (HMENU)IDC_DELAY_LABEL,
         GetModuleHandle(NULL), NULL);
 
@@ -2467,7 +2524,7 @@ static void ShowConfigDialog(void) {
     hSlider = CreateWindow(
         "SCROLLBAR", NULL,
         WS_CHILD | WS_VISIBLE | WS_TABSTOP | SBS_HORZ,
-        95, 50, 210, 17,
+        95, 85, 210, 17,
         g_configDialog, (HMENU)IDC_DELAY_SLIDER,
         GetModuleHandle(NULL), NULL);
     SetScrollRange(hSlider, SB_CTL, 0, 100, FALSE);
@@ -2477,7 +2534,7 @@ static void ShowConfigDialog(void) {
     CreateWindow(
         "STATIC", "Enable HQ 2x scaler",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        10, 85, 140, 20,
+        10, 120, 140, 20,
         g_configDialog, (HMENU)IDC_HQ_LABEL,
         GetModuleHandle(NULL), NULL);
 
@@ -2485,7 +2542,7 @@ static void ShowConfigDialog(void) {
     CreateWindow(
         "BUTTON", NULL,
         WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_CHECKBOX,
-        155, 85, 20, 20,
+        155, 120, 20, 20,
         g_configDialog, (HMENU)IDC_HQ_CHECKBOX,
         GetModuleHandle(NULL), NULL);
     CheckDlgButton(g_configDialog, IDC_HQ_CHECKBOX, g_hq2x ? BST_CHECKED : BST_UNCHECKED);

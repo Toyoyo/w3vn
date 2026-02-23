@@ -38,7 +38,9 @@ TSTVN Engine - Win32s
 
 'T' line is the window Title
 
-'V' line is the audio volume level (mostly set via the configuration dialog), if not present, volume is not restored on startup
+'V' line is the audio volume level (mostly set via the configuration dialog), if not present, volume is not restored on startup.
+
+'X' line is the (MIDI) SFX volume level (set via the configuration dialog), if not present, volume is not restored on startup. This is currently only used in the rythm game.
 
 'D' line is the audio auxiliary device name (used on Win32s, ignored on Win95+), you probably won't want to change it, defaults to "volume", line is optional
 

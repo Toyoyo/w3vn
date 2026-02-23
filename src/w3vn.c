@@ -42,6 +42,8 @@ static int g_origvolume = 100;
 static int g_cursorX = 0;
 static int g_cursorY = 0;
 static int g_textdelay = 0; /* Delay between characters in ms (0 = instant) */
+int g_sfxVolume = 100;      /* SFX volume 0-100, applied as MIDI CC7 */
+HMIDIOUT g_sfxMidiOut = NULL; /* active SFX midiOut handle, NULL when not in use */
 static int g_textskip = 0;  /* 0=no delay, 1=delay active, -1=user skipped */
 
 /* Audio state */
@@ -294,6 +296,13 @@ static void run(void) {
                 if (*line == 'D') {
                     strncpy(g_volumedevice, line + 1, sizeof(g_volumedevice) - 1);
                     g_volumedevice[sizeof(g_volumedevice) - 1] = '\0';
+                }
+                if (*line == 'X') {
+                    if (strlen(line) >= 4) {
+                        g_sfxVolume = atoi(line + 1);
+                        if (g_sfxVolume < 0)   g_sfxVolume = 0;
+                        if (g_sfxVolume > 100) g_sfxVolume = 100;
+                    }
                 }
             }
             line = get_line(config);
