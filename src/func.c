@@ -28,6 +28,8 @@ static void ShowConfigDialog(void);
 static int LoadBackgroundImage(const char *picture, uint8_t *bgpalette, uint32_t *background);
 static void CloseMainSfx(void);
 static void PlayMainSfx(DWORD msg);
+static void CloseWavSfx(void);
+static void PlayWavSfx(const char *filename);
 
 /* Configuration dialog control IDs */
 #define IDC_VOLUME_LABEL    101
@@ -2132,6 +2134,157 @@ static void PlayMainSfx(DWORD msg) {
     }
 }
 
+/* ── WAV SFX (K handler) ────────────────────────────────────────────────── */
+static UINT g_wavSfxMciId = 0;
+static char g_wavSfxTmp[260] = "";
+
+/* Scale PCM samples in a WAV buffer in-place by vol_pct (0-100).
+   Handles 8-bit (unsigned) and 16-bit (signed little-endian) PCM. */
+static void scale_wav_buf(unsigned char *buf, long fsize, int vol_pct) {
+    unsigned char *p, *end;
+    WORD fmt_tag = 1, bits = 16;
+
+    if (fsize < 12 || memcmp(buf, "RIFF", 4) != 0 || memcmp(buf + 8, "WAVE", 4) != 0)
+        return;
+
+    p   = buf + 12;
+    end = buf + fsize;
+    while (p + 8 <= end) {
+        DWORD csz;
+        memcpy(&csz, p + 4, 4);
+        if (memcmp(p, "fmt ", 4) == 0 && csz >= 16) {
+            memcpy(&fmt_tag, p + 8,  2);
+            memcpy(&bits,    p + 22, 2);
+        } else if (memcmp(p, "data", 4) == 0 && fmt_tag == 1 /* PCM */) {
+            unsigned char *data = p + 8;
+            long data_sz = (long)csz;
+            long i;
+            if (data + data_sz > end) data_sz = (long)(end - data);
+            if (bits == 16) {
+                for (i = 0; i + 1 < data_sz; i += 2) {
+                    short s;
+                    long scaled;
+                    memcpy(&s, data + i, 2);
+                    scaled = ((long)s * vol_pct) / 100;
+                    if (scaled >  32767) scaled =  32767;
+                    if (scaled < -32768) scaled = -32768;
+                    s = (short)scaled;
+                    memcpy(data + i, &s, 2);
+                }
+            } else if (bits == 8) {
+                for (i = 0; i < data_sz; i++) {
+                    int s = (int)data[i] - 128;
+                    s = (s * vol_pct) / 100;
+                    if (s >  127) s =  127;
+                    if (s < -128) s = -128;
+                    data[i] = (unsigned char)(s + 128);
+                }
+            } else if (bits == 24) {
+                for (i = 0; i + 2 < data_sz; i += 3) {
+                    long s = (long)((int)(data[i] | (data[i+1] << 8) | ((signed char)data[i+2] << 16)));
+                    long scaled = (s * vol_pct) / 100;
+                    if (scaled >  8388607L) scaled =  8388607L;
+                    if (scaled < -8388608L) scaled = -8388608L;
+                    data[i]   = (unsigned char)(scaled & 0xFF);
+                    data[i+1] = (unsigned char)((scaled >> 8) & 0xFF);
+                    data[i+2] = (unsigned char)((scaled >> 16) & 0xFF);
+                }
+            } else if (bits == 32) {
+                for (i = 0; i + 3 < data_sz; i += 4) {
+                    int s32;
+                    double scaled;
+                    memcpy(&s32, data + i, 4);
+                    scaled = (double)s32 * vol_pct / 100.0;
+                    if (scaled >  2147483647.0) scaled =  2147483647.0;
+                    if (scaled < -2147483648.0) scaled = -2147483648.0;
+                    s32 = (int)scaled;
+                    memcpy(data + i, &s32, 4);
+                }
+            }
+            break;
+        }
+        p += 8 + csz + (csz & 1); /* chunks are word-aligned */
+    }
+}
+
+static void CloseWavSfx(void) {
+    if (g_wavSfxMciId) {
+        mciSendCommand(g_wavSfxMciId, MCI_STOP, 0, 0);
+        mciSendCommand(g_wavSfxMciId, MCI_CLOSE, 0, 0);
+        g_wavSfxMciId = 0;
+    }
+    if (g_wavSfxTmp[0]) {
+        DeleteFileA(g_wavSfxTmp);
+        g_wavSfxTmp[0] = '\0';
+    }
+}
+
+static void PlayWavSfx(const char *filename) {
+    char srcpath[260], playpath[260];
+    MCI_OPEN_PARMS mo;
+    MCI_PLAY_PARMS pp;
+
+    snprintf(srcpath, sizeof(srcpath), "data\\%s", filename);
+    CloseWavSfx();
+
+    if (g_sfxVolume == 0)
+        return;
+
+    if (g_sfxVolume < 100) {
+        /* Scale PCM samples into a temp file */
+        FILE *f;
+        long fsize;
+        unsigned char *wav;
+
+        if (!g_wavSfxTmp[0]) {
+            char tmpdir[260];
+            tmpdir[0] = '\0';
+            GetTempPathA(sizeof(tmpdir), tmpdir);
+            if (!tmpdir[0])
+                GetWindowsDirectoryA(tmpdir, sizeof(tmpdir));
+            snprintf(g_wavSfxTmp, sizeof(g_wavSfxTmp), "%s\\sfx_wav.wav", tmpdir);
+        }
+
+        f = fopen(srcpath, "rb");
+        if (!f) return;
+        fseek(f, 0, SEEK_END);
+        fsize = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        wav = (unsigned char *)malloc(fsize);
+        if (!wav) { fclose(f); return; }
+        if ((long)fread(wav, 1, fsize, f) != fsize) { free(wav); fclose(f); return; }
+        fclose(f);
+
+        scale_wav_buf(wav, fsize, g_sfxVolume);
+
+        f = fopen(g_wavSfxTmp, "wb");
+        if (!f) { free(wav); return; }
+        fwrite(wav, 1, fsize, f);
+        fclose(f);
+        free(wav);
+
+        strncpy(playpath, g_wavSfxTmp, 259);
+        playpath[259] = '\0';
+    } else {
+        strncpy(playpath, srcpath, 259);
+        playpath[259] = '\0';
+    }
+
+    memset(&mo, 0, sizeof mo);
+    mo.lpstrElementName = playpath;
+    mo.lpstrAlias       = "k_sfx";
+
+    if (mciSendCommand(0, MCI_OPEN, MCI_OPEN_ELEMENT | MCI_OPEN_ALIAS,
+            (DWORD)(LPVOID)&mo) != 0)
+        return;
+
+    g_wavSfxMciId = mo.wDeviceID;
+
+    memset(&pp, 0, sizeof pp);
+    pp.dwCallback = (DWORD)g_hwnd;
+    mciSendCommand(g_wavSfxMciId, MCI_PLAY, MCI_NOTIFY, (DWORD)(LPVOID)&pp);
+}
+
 static int GetMasterVolume(void) {
     int pos = 100;
     DWORD ver = GetVersion();
@@ -2742,6 +2895,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             break;
 
         case MM_MCINOTIFY:
+            /* WAV SFX finished - close device immediately to free waveaudio */
+            if (g_wavSfxMciId != 0 && (UINT)lParam == g_wavSfxMciId) {
+                CloseWavSfx();
+                break;
+            }
             /* Music finished playing - restart for looping */
             if (wParam == MCI_NOTIFY_SUCCESSFUL && g_mciDeviceID != 0) {
                 RestartMusic();

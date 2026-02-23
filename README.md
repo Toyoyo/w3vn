@@ -213,6 +213,28 @@ Supported operands:
 
    Also, resets sprites, but 'I' is expected after anyway.
 
+* 'Q' Play a MIDI sound effect using MCI MIDI
+
+  This creates a temporary file for the MIDI note, using GetTempPathA() or GetWindowsDirectoryA() if this fails.
+
+  Expected format: ``Format: Q00VVNNSS`` like ``Q007F3199``
+
+  This uses the FX Volume level while creating the temp midi file so this doesn't depend on a separate playing channel.
+
+  This can't be used if the background music is a MIDI file.
+
+* 'K' Play a WAV sound effect using MCI WAV
+
+  This creates a temporary file for the MIDI note, using GetTempPathA() or GetWindowsDirectoryA() if this fails.
+
+  Expected format: ``KDING.WAV``
+
+  This uses the FX Volume level while creating the temp wav file so this doesn't depend on a separate playing channel.
+
+  Supported formats are pcm_u8, pcm_s16le, pcm_s24le, pcm_s32le, though playing depends on MCI, so on Win32s you want to restrict yourself to pcm_u8 and pcm_s16le.
+
+  On win32s, this can't be used if the background music is using wavaudio, can work on more recent windows version.
+
 * 'X' : Trigger a visual effect.
 
   Syntax: ``X[XX]`` like ``X03``

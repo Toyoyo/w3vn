@@ -497,6 +497,10 @@ static void run(void) {
                                 uint32_t bgcolor = COLOR_WHITE;
                                 memset(picture, 0, sizeof(picture));
 
+                                /* Stop any active SFX before replay */
+                                CloseMainSfx();
+                                CloseWavSfx();
+
                                 /* On load (not rollback): stop music - will restart if 'P' is encountered */
                                 if (loadsave == 1) {
                                     if (isplaying) {
@@ -890,6 +894,12 @@ static void run(void) {
                     PlayMainSfx((DWORD)strtoul(line + 1, NULL, 16));
             }
 
+            /* 'K': Play WAV (or other non-MIDI) SFX (e.g. Ksounds\click.wav) */
+            if (*line == 'K') {
+                if (strlen(line) >= 2)
+                    PlayWavSfx(line + 1);
+            }
+
             /* 'G': Play game */
             if (*line == 'G') {
                 /* Format: G[game_id1][register1][stride1][score6][args] */
@@ -963,6 +973,7 @@ static void run(void) {
                             g_fullcombo = 0;
                             /* Release MIDI mapper so rhythm game can open its own handle */
                             CloseMainSfx();
+                            CloseWavSfx();
                             score = PlayRhythmGame(bg_path, audio_path, beatmap_path, stride);
 
                             if(score >=0) {
@@ -1460,6 +1471,7 @@ static void run(void) {
 
 endprog:
     CloseMainSfx();
+    CloseWavSfx();
     StopMusic();
     StopVideo();
     fclose(script);
