@@ -165,6 +165,35 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
     RestoreScreen();\
 }
 
+#define ResetEngine() {\
+    rewind(script);\
+    lineNumber = 0;\
+    savepointer = 0;\
+    willplaying = 0;\
+    spritecount = 0;\
+    memset(musicfile, 0, sizeof(musicfile));\
+    memset(oldmusicfile, 0, sizeof(oldmusicfile));\
+    memset(picture, 0, sizeof(picture));\
+    memset(oldpicture, 0, sizeof(oldpicture));\
+    reset_cursprites();\
+    reset_prevsprites();\
+    StopMusic();\
+    isplaying = 0;\
+    savehistory_idx = 0;\
+    memset(savehistory, 0, sizeof(savehistory));\
+    memset(choicedata, 0, 11);\
+    memset(sayername, 0, sizeof(sayername));\
+    skipnexthistory = 0;\
+    loadsave = 0;\
+    backfromvideo = 0;\
+    g_textskip = 0;\
+    charlines = 0;\
+    memset(g_background, 0xFF, IMAGE_AREA_PIXELS * sizeof(uint32_t));\
+    clear_screen();\
+    CloseMidiSfx();\
+    CloseWavSfx();\
+}
+
 #define QuitMacro() {\
     next = read_keyboard_status();\
     while ((next != 9 && next != 10 && next != 11) && g_running) {\
@@ -183,32 +212,7 @@ int PlayRhythmGame(const char *bg_path, const char *audio_path, const char *beat
         Sleep(5);\
     }\
     if (next == 10) {\
-        rewind(script);\
-        lineNumber = 0;\
-        savepointer = 0;\
-        willplaying = 0;\
-        spritecount = 0;\
-        memset(musicfile, 0, sizeof(musicfile));\
-        memset(oldmusicfile, 0, sizeof(oldmusicfile));\
-        memset(picture, 0, sizeof(picture));\
-        memset(oldpicture, 0, sizeof(oldpicture));\
-        reset_cursprites();\
-        reset_prevsprites();\
-        StopMusic();\
-        isplaying = 0;\
-        savehistory_idx = 0;\
-        memset(savehistory, 0, sizeof(savehistory));\
-        memset(choicedata, 0, 11);\
-        memset(sayername, 0, sizeof(sayername));\
-        skipnexthistory = 0;\
-        loadsave = 0;\
-        backfromvideo = 0;\
-        g_textskip = 0;\
-        charlines = 0;\
-        memset(g_background, 0xFF, IMAGE_AREA_PIXELS * sizeof(uint32_t));\
-        clear_screen();\
-        CloseMidiSfx();\
-        CloseWavSfx();\
+        ResetEngine();\
     }\
 }
 
@@ -1188,32 +1192,7 @@ static void run(void) {
 
             /* 'F': Jump to start */
             if (*line == 'F') {
-                rewind(script);
-                lineNumber = 0;
-                savepointer = 0;
-                willplaying = 0;
-                spritecount = 0;
-                memset(musicfile, 0, sizeof(musicfile));
-                memset(oldmusicfile, 0, sizeof(oldmusicfile));
-                memset(picture, 0, sizeof(picture));
-                memset(oldpicture, 0, sizeof(oldpicture));
-                reset_cursprites();
-                reset_prevsprites();
-                StopMusic();
-                isplaying = 0;
-                savehistory_idx = 0;
-                memset(savehistory, 0, sizeof(savehistory));
-                memset(choicedata, 0, 11);
-                memset(sayername, 0, sizeof(sayername));
-                skipnexthistory = 0;
-                loadsave = 0;
-                backfromvideo = 0;
-                g_textskip = 0;
-                charlines = 0;
-                memset(g_background, 0xFF, IMAGE_AREA_PIXELS * sizeof(uint32_t));
-                clear_screen();
-                CloseMidiSfx();
-                CloseWavSfx();
+                ResetEngine();
             }
 
             /* 'B': Conditional branch */
