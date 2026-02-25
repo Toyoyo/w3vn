@@ -40,6 +40,7 @@ static void PlayWavSfx(const char *filename);
 #define IDC_DELAY_SLIDER    106
 #define IDC_SFXVOL_LABEL    107
 #define IDC_SFXVOL_SLIDER   108
+#define WM_VIDEO_REPAINT    (WM_USER + 100)
 
 static HWND g_configDialog = NULL;
 static int g_recenterDialog = 0;
@@ -2866,13 +2867,18 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             BeginPaint(hwnd, &ps);
             update_display();
             EndPaint(hwnd, &ps);
-            /* Force video child window to repaint on top after we've painted */
+            /* Defer video repaint to avoid reentrancy hang on Win32s */
+            if (g_videoPlaying && g_videoWindow)
+                PostMessage(hwnd, WM_VIDEO_REPAINT, 0, 0);
+            break;
+        }
+
+        case WM_VIDEO_REPAINT:
             if (g_videoPlaying && g_videoWindow) {
                 InvalidateRect(g_videoWindow, NULL, TRUE);
                 UpdateWindow(g_videoWindow);
             }
             break;
-        }
 
         case WM_SIZE:
             /* Handle video child window resize */
