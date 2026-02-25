@@ -2866,6 +2866,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             BeginPaint(hwnd, &ps);
             update_display();
             EndPaint(hwnd, &ps);
+            /* Force video child window to repaint on top after we've painted */
+            if (g_videoPlaying && g_videoWindow) {
+                InvalidateRect(g_videoWindow, NULL, TRUE);
+                UpdateWindow(g_videoWindow);
+            }
             break;
         }
 
