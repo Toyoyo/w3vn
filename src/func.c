@@ -2867,7 +2867,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             BeginPaint(hwnd, &ps);
             update_display();
             EndPaint(hwnd, &ps);
-            /* Defer video repaint to avoid reentrancy hang on Win32s */
+            /* Force video child window to repaint on top after we've painted to avoid a bug on Overlay-rendering codecs (Win9x)
+               Defer video repaint to avoid reentrancy hang on Win32s/Win9x */
             if (g_videoPlaying && g_videoWindow)
                 PostMessage(hwnd, WM_VIDEO_REPAINT, 0, 0);
             break;
