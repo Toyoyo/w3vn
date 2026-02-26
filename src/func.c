@@ -322,7 +322,7 @@ static int IsVideoPlaying(void) {
     char status[64] = {0};
     if (!g_videoPlaying) return 0;
     if (mciSendString("status video mode", status, sizeof(status), NULL) == 0) {
-        if (strcmp(status, "playing") == 0) return 1;
+        if (strcmp(status, "playing") == 0 || strcmp(status, "seeking") == 0) return 1;
     }
     return 0;
 }
