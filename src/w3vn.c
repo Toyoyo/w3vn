@@ -441,7 +441,6 @@ static void run(void) {
 
                     /* Load */
                     if (next == 4) {
-                        loadsave = 1;
                         SaveScreen();
                         DispLoadSave(0);
 
@@ -454,6 +453,7 @@ static void run(void) {
 
                     lblloadsave:
                         if (next != 2 && next != 9) {
+                            loadsave = 1;
                             HandleSaveFilename(next);
 
                             if (file_exists(savefile) == 0) {
