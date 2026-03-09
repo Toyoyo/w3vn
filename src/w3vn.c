@@ -1292,7 +1292,6 @@ static void run(void) {
                                 update_display();
                                 if (file_exists(savefile) == 0) {
                                     next = ldnext;
-                                    loadsave = 1;
                                     goto lblloadsave;
                                 }
                             } else {
