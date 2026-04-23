@@ -665,7 +665,7 @@ static void run(void) {
                                             memcpy(jumplabel, line + 3, 6);
 
                                             /* Lookahead: find first S line after the branch's label.
-                                             * Take the branch iff that S matches the next expected
+                                             * Take the branch if that S matches the next expected
                                              * entry in savehistory. This avoids relying on
                                              * choicedata (single-snapshot) during replay. */
                                             long saved_pos = ftell(script);
