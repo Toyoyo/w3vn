@@ -2,8 +2,8 @@ SOURCES_DIR=./src
 BUILD_DIR=./build
 DIST_DIR=./dist
 RSC_DIR=./rsc
-ZLIB=./deps/zlib-1.3.1
-PNG=./deps/libpng-1.6.55
+ZLIB=./deps/zlib-1.4
+PNG=./deps/libpng-1.6.58
 
 CC=wcl386
 CFLAGS=-bt=nt -l=nt_win -za99 -ox -I$(ZLIB) -I$(PNG)
